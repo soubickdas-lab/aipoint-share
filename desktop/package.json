@@ -1,0 +1,14 @@
+{
+  "name": "aipoint-share-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "tauri": "tauri",
+    "icons": "tauri icon ./app-icon.png",
+    "build": "tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

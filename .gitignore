@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+owner-key.txt
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/src-tauri/icons/android/
+desktop/src-tauri/icons/ios/
+.DS_Store

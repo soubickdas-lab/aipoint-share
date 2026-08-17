@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIPoint Share</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+:root{
+  --bg:#0a0e17; --bg2:#0f1522; --card:#131a2a; --card2:#182136; --card3:#1d2740;
+  --border:#232e48; --text:#e8ecf4; --dim:#8b95ad; --dim2:#5a6480;
+  --accent:#5b8cff; --accent2:#8b5bff; --green:#34d399; --red:#f87171; --amber:#fbbf24;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;background:
+  radial-gradient(600px 300px at 20% -5%,rgba(91,140,255,.13),transparent),
+  radial-gradient(600px 300px at 85% 0%,rgba(139,91,255,.10),transparent);pointer-events:none}
+.wrap{max-width:1060px;margin:0 auto;padding:22px 18px 60px;position:relative}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:26px;flex-wrap:wrap}
+.logo{font-size:1.35rem;font-weight:700;letter-spacing:-.02em}
+.logo span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;color:var(--dim);background:var(--card);border:1px solid var(--border);padding:5px 11px;border-radius:99px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim2);flex:none}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.off{background:var(--red)}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--card3);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:.8rem;font-weight:600;transition:.15s}
+.btn:hover{border-color:var(--accent);background:var(--card2)}
+.btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#fff}
+.btn.sm{padding:4px 9px;font-size:.72rem;border-radius:7px}
+.btn.on{border-color:var(--amber);color:var(--amber);background:rgba(251,191,36,.1)}
+
+/* identity card */
+.idcard{background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:18px;padding:20px 22px;display:flex;gap:18px;align-items:center;margin-bottom:26px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.avatar{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,rgba(91,140,255,.25),rgba(139,91,255,.25));border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;flex:none}
+.idmain{flex:1;min-width:0}
+.idname{font-size:1.15rem;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.idname .edit{cursor:pointer;font-size:.85rem;opacity:.6}.idname .edit:hover{opacity:1}
+.idtag{font-family:Consolas,monospace;font-size:.72rem;color:var(--accent);background:rgba(91,140,255,.12);padding:2px 8px;border-radius:6px;letter-spacing:.08em}
+.idmeta{margin-top:6px;font-size:.82rem;color:var(--dim);display:flex;gap:14px;flex-wrap:wrap}
+.idmeta b{color:var(--text);font-weight:600}
+.youbadge{font-size:.65rem;background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.35);padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.06em}
+
+/* sections */
+h2.sec{font-size:.8rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim2);margin:30px 0 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+h2.sec .hint{font-weight:400;text-transform:none;letter-spacing:0}
+.target{font-size:.78rem;color:var(--dim);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.target b{color:var(--text)}
+.target kbd{background:var(--card3);border:1px solid var(--border);border-radius:4px;padding:0 5px;font-family:inherit;font-size:.7rem}
+.tag{font-size:.62rem;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:99px;border:1px solid}
+.tag.pin{color:var(--amber);border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.1)}
+.tag.sel{color:var(--accent);border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.12)}
+.tag.rec{color:var(--dim);border-color:var(--border);background:var(--bg2)}
+.tag.app{color:#c4b5fd;border-color:rgba(167,139,250,.5);background:rgba(139,92,246,.15)}
+html.tauri #getApp{display:none}
+.modal{position:fixed;inset:0;background:rgba(5,8,15,.7);display:flex;align-items:center;justify-content:center;z-index:80;padding:16px}
+.mbox{background:var(--card2);border:1px solid var(--border);border-radius:16px;padding:18px 20px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-size:1rem}
+.mrow{display:flex;gap:10px;align-items:center;margin:10px 0;font-size:.85rem;flex-wrap:wrap}
+.mrow>span:first-child{color:var(--dim);min-width:120px}
+.mrow input[type=text],.mrow input:not([type]){flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;font:inherit;font-size:.85rem;outline:none;min-width:160px}
+.mrow input:focus{border-color:var(--accent)}
+.mrow.chk{align-items:flex-start}
+.mrow.chk input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px}
+.mrow.chk small{color:var(--dim)}
+.mpath{flex:1;font-family:Consolas,monospace;font-size:.75rem;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 9px;word-break:break-all;min-width:160px}
+.mfoot{display:flex;justify-content:space-between;color:var(--dim2);font-size:.72rem;margin-top:14px;flex-wrap:wrap;gap:6px}
+
+/* peers grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.peer{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;transition:.15s;position:relative;cursor:pointer}
+.peer:hover{border-color:var(--dim2)}
+.peer.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(91,140,255,.35);background:rgba(91,140,255,.06)}
+.peer.pinned{border-color:rgba(251,191,36,.55);background:linear-gradient(160deg,rgba(251,191,36,.07),var(--card))}
+.peer.pinned.sel{box-shadow:0 0 0 2px rgba(91,140,255,.35)}
+.peer.drag{border-color:var(--green)!important;background:rgba(52,211,153,.08)!important;transform:scale(1.02)}
+.peer .top{display:flex;gap:12px;align-items:center;padding-right:70px}
+.pavatar{width:44px;height:44px;border-radius:12px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none}
+.pname{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pmeta{font-size:.75rem;color:var(--dim);margin-top:2px}
+.pinfo{margin-top:10px;font-size:.75rem;color:var(--dim);display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+.pinfo b{color:var(--text);font-weight:500}
+.phint{margin-top:12px;border:1.5px dashed var(--border);border-radius:10px;padding:9px;text-align:center;font-size:.75rem;color:var(--dim2);transition:.15s;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;align-items:center}
+.phint span{cursor:pointer}.phint span:hover{color:var(--text)}
+.peer.sel .phint{border-color:rgba(91,140,255,.5)}
+.corner{position:absolute;top:12px;right:12px;display:flex;gap:6px;align-items:center}
+.netb{font-size:.62rem;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:99px;border:1px solid var(--border);color:var(--dim2);background:var(--bg2);white-space:nowrap}
+.netb.local{color:var(--green);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.1)}
+.pinb{background:var(--bg2);border:1px solid var(--border);border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--dim2);transition:.15s;padding:0}
+.pinb:hover{border-color:var(--amber);color:var(--amber)}
+.pinb.on{border-color:var(--amber);background:rgba(251,191,36,.15);color:var(--amber)}
+.compose{margin-top:10px;display:none;gap:6px}
+.compose.open{display:flex}
+.peer.sel{cursor:default}
+body.pagedrag::after{content:"📂  Drop to send to " attr(data-target);position:fixed;inset:0;background:rgba(10,14,23,.82);border:3px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;color:var(--green);z-index:50;pointer-events:none}
+.compose textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text);font:inherit;font-size:.82rem;padding:8px 10px;resize:vertical;min-height:40px;max-height:200px;outline:none}
+.compose textarea:focus{border-color:var(--accent)}
+.compose .btn{padding:0 12px}
+.empty{color:var(--dim2);font-size:.85rem;padding:30px;text-align:center;border:1px dashed var(--border);border-radius:14px}
+
+/* transfers */
+.tx{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:.85rem}
+.tx .row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.tx .fn{font-weight:600;word-break:break-all}
+.tx .fn .peer{color:var(--dim);font-weight:500;font-size:.75rem;background:none;border:none;padding:0;cursor:default;box-shadow:none}
+.tx .st{color:var(--dim);font-size:.75rem;margin-top:3px}
+.tx .spd{font-size:1.5rem;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.tx .spd small{font-size:.7rem;font-weight:600;color:var(--dim);margin-left:3px}
+.bar{height:5px;background:var(--bg2);border-radius:99px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .15s}
+.tx.done .bar i{background:var(--green)}
+.tx.fail .bar i{background:var(--red)}
+.tx.text{border-left:3px solid var(--accent2)}
+.tx.text.in{border-left-color:var(--green)}
+.tx .txt{margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:.85rem;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;font-family:Consolas,monospace}
+.tx .txtacts{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.tx .copied{color:var(--green);font-size:.72rem;font-weight:600}
+
+#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:99}
+.toast{background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:11px 16px;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:tin .25s ease;max-width:320px}
+.toast.g{border-left-color:var(--green)}.toast.r{border-left-color:var(--red)}
+@keyframes tin{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+footer{margin-top:50px;text-align:center;color:var(--dim2);font-size:.75rem}
+footer a{color:var(--dim)}
+@media(max-width:560px){.idcard{flex-direction:column;text-align:center}.idmeta{justify-content:center}.pinfo{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">⚡ AIPoint <span>Share</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
+      <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
+      <button class="btn sm" id="settingsBtn" style="display:none">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <!-- desktop app settings -->
+  <div id="settingsModal" class="modal" style="display:none">
+    <div class="mbox">
+      <div class="mhead"><b>⚙️ App Settings</b><button class="btn sm" id="closeSettings">✕</button></div>
+      <label class="mrow"><span>Device name</span><input id="sNick" maxlength="24" placeholder="e.g. Soubick PC"></label>
+      <label class="mrow"><span>Download folder</span><span class="mpath" id="sDir">…</span><button class="btn sm" id="sPick">Change…</button><button class="btn sm" id="sOpen">Open</button></label>
+      <label class="mrow chk"><input type="checkbox" id="sAuto"><span><b>Start automatically when computer starts</b><br><small>Runs in the tray at login so files can arrive any time</small></span></label>
+      <label class="mrow chk"><input type="checkbox" id="sMin"><span><b>Start minimized to tray</b></span></label>
+      <label class="mrow chk"><input type="checkbox" id="sTray"><span><b>Keep running in tray when window is closed</b></span></label>
+      <div class="mfoot"><span id="sVer"></span><span id="sLan"></span></div>
+    </div>
+  </div>
+
+  <div class="idcard">
+    <div class="avatar" id="myAvatar">👤</div>
+    <div class="idmain">
+      <div class="idname"><span id="myName">…</span><span class="edit" id="editNick" title="Change name">✏️</span><span class="idtag" id="myId">····</span><span class="youbadge">YOU</span></div>
+      <div class="idmeta"><span id="myDevice">…</span><span id="myLoc">…</span><span id="myIp"></span></div>
+    </div>
+  </div>
+
+  <h2 class="sec">🟢 Other Online Devices — <span id="peerCount">0</span>&nbsp;<span class="hint">drag files/folders onto a device · click a card to select it</span></h2>
+  <div class="target" id="targetBar" style="display:none"></div>
+  <div class="grid" id="peerGrid"></div>
+  <div class="empty" id="noPeers">Abhi koi aur device online nahi hai.<br>Kisi aur device/phone par ye site kholo — uska card yahan aa jayega.</div>
+
+  <h2 class="sec" id="txHead" style="display:none"><span>Activity</span><button class="btn sm" id="clearAct">Clear</button></h2>
+  <div id="txList"></div>
+
+  <footer>AIPoint Share · Local = direct LAN transfer ⚡ · Remote = P2P / relay · files never stored on any server · <a href="https://aipoint.online">aipoint.online</a></footer>
+</div>
+<div id="toasts"></div>
+
+<script>
+"use strict";
+/* ---------- state ---------- */
+let ws=null, myId=null, myMeta={}, peers=[], reconnectDelay=800, selId=null;
+const transfers=new Map();
+let tidCounter=Math.floor(Math.random()*1e6);
+const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB in flight
+const MAX_TEXT=200*1024;
+
+/* ---------- desktop app bridge (Tauri) ---------- */
+const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
+const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
+const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
+let appInfo=null; // {version, port, ips, download_dir, ...}
+const SIGNAL_HOST=(location.protocol==="https:"||location.protocol==="http:")&&!/localhost|127\.0\.0\.1|tauri/.test(location.hostname)?location.host:"share.aipoint.online";
+if(TAURI) document.documentElement.classList.add("tauri");
+
+let myDid=localStorage.getItem("share_did");
+if(!myDid){
+  myDid=Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b%32]).join("");
+  localStorage.setItem("share_did",myDid);
+}
+let pinnedDid=localStorage.getItem("share_pin")||"";
+let recent={}; try{ recent=JSON.parse(localStorage.getItem("share_recent")||"{}")||{}; }catch{}
+function touchPeer(peerId){ // remember "last worked with" per device
+  const p=peers.find(x=>x.id===peerId); if(!p||!p.did) return;
+  recent[p.did]=Date.now();
+  const keys=Object.keys(recent).sort((a,b)=>recent[b]-recent[a]).slice(0,50);
+  recent=Object.fromEntries(keys.map(k=>[k,recent[k]]));
+  localStorage.setItem("share_recent",JSON.stringify(recent));
+  renderPeers();
+}
+
+/* ---------- helpers ---------- */
+function parseUA(){
+  const u=navigator.userAgent;
+  let os="Unknown OS";
+  if(/Windows/.test(u)) os="Windows";
+  else if(/iPhone/.test(u)) os="iPhone";
+  else if(/iPad/.test(u)) os="iPad";
+  else if(/Android/.test(u)) os="Android";
+  else if(/Mac OS X/.test(u)) os="macOS";
+  else if(/Linux/.test(u)) os="Linux";
+  let br="Browser";
+  if(/Edg\//.test(u)) br="Edge";
+  else if(/OPR\//.test(u)) br="Opera";
+  else if(/SamsungBrowser/.test(u)) br="Samsung";
+  else if(/Chrome\//.test(u)) br="Chrome";
+  else if(/Firefox\//.test(u)) br="Firefox";
+  else if(/Safari\//.test(u)) br="Safari";
+  const mobile=/Android|iPhone|iPad|Mobile/.test(u);
+  return {os,br,dev:mobile?(/iPad|Tablet/.test(u)?"Tablet":"Mobile"):"Desktop"};
+}
+function devIcon(ua){
+  if(!ua) return "👤";
+  if(ua.dev==="Mobile") return "📱";
+  if(ua.dev==="Tablet") return "📲";
+  if(ua.os==="macOS") return "🖥️";
+  return "💻";
+}
+const ADJ=["Swift","Neon","Cosmic","Silent","Golden","Crimson","Frost","Shadow","Turbo","Lucky","Electric","Mystic","Solar","Pixel","Royal","Wild"];
+const NOUN=["Falcon","Tiger","Panda","Wolf","Phoenix","Otter","Raven","Cobra","Lynx","Orca","Hawk","Fox","Dragon","Koala","Puma","Eagle"];
+function funName(id){ let h=0; for(const c of id) h=(h*31+c.charCodeAt(0))>>>0; return ADJ[h%ADJ.length]+" "+NOUN[(h>>>4)%NOUN.length]; }
+function displayName(p){ return p.nick||funName(p.id); }
+function peerName(id){ const p=peers.find(x=>x.id===id); return p?displayName(p):funName(id); }
+function fmtSize(n){
+  if(n<1024) return n+" B";
+  if(n<1048576) return (n/1024).toFixed(1)+" KB";
+  if(n<1073741824) return (n/1048576).toFixed(1)+" MB";
+  return (n/1073741824).toFixed(2)+" GB";
+}
+function fmtSince(t){
+  const s=Math.max(0,(Date.now()-t)/1000);
+  if(s<60) return Math.floor(s)+"s";
+  if(s<3600) return Math.floor(s/60)+"m";
+  return Math.floor(s/3600)+"h "+Math.floor(s%3600/60)+"m";
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toast(msg,cls){
+  const d=document.createElement("div");
+  d.className="toast "+(cls||""); d.innerHTML=msg;
+  document.getElementById("toasts").appendChild(d);
+  setTimeout(()=>{d.style.opacity="0";d.style.transition=".3s";setTimeout(()=>d.remove(),350)},4200);
+}
+
+/* ---------- websocket ---------- */
+function connect(){
+  const proto=(location.protocol==="http:"&&SIGNAL_HOST===location.host)?"ws://":"wss://";
+  ws=new WebSocket(proto+SIGNAL_HOST+"/ws");
+  ws.binaryType="arraybuffer";
+  ws.onopen=()=>{ reconnectDelay=800; setConn(true); };
+  ws.onclose=()=>{ setConn(false); setTimeout(connect, reconnectDelay); reconnectDelay=Math.min(reconnectDelay*1.6,15000); };
+  ws.onerror=()=>{ try{ws.close()}catch{} };
+  ws.onmessage=(ev)=>{
+    if(typeof ev.data==="string"){ if(ev.data==="pong")return; handleJson(JSON.parse(ev.data)); }
+    else handleChunk(ev.data);
+  };
+}
+setInterval(()=>{ if(ws&&ws.readyState===1) ws.send("ping"); },25000);
+function send(o){ if(ws&&ws.readyState===1) ws.send(JSON.stringify(o)); }
+function setConn(on){
+  document.getElementById("connDot").className="dot "+(on?"on":"off");
+  document.getElementById("connTxt").textContent=on?"Connected":"Reconnecting…";
+}
+
+/* ---------- webrtc: N_PC separate PeerConnections per peer (each its own SCTP
+   congestion window → N× throughput), CH_PER_PC unordered channels each ---------- */
+const rtc=new Map();
+const RTC_CFG={iceServers:[{urls:"stun:stun.cloudflare.com:3478"},{urls:"stun:stun.l.google.com:19302"}]};
+const N_PC=3, CH_PER_PC=2;
+function ensureRtc(peerId, initiator){
+  let e=rtc.get(peerId);
+  if(e) return e;
+  e={slots:[], dcs:[], status:"connecting", pc:null};
+  rtc.set(peerId,e);
+  for(let s=0;s<N_PC;s++) e.slots.push(makeSlot(peerId,e,s,initiator));
+  e.pc=e.slots[0].pc;
+  return e;
+}
+function makeSlot(peerId,e,s,initiator){
+  const pc=new RTCPeerConnection(RTC_CFG);
+  const slot={pc,pendingIce:[]};
+  pc.onicecandidate=ev=>{ if(ev.candidate) send({type:"rtc",to:peerId,slot:s,kind:"ice",cand:ev.candidate.toJSON()}); };
+  pc.onconnectionstatechange=()=>{
+    if(s!==0) return; // slot 0 decides the badge
+    if(pc.connectionState==="connected") classify(peerId,e);
+    else if(pc.connectionState==="failed"||pc.connectionState==="closed"){ e.status="failed"; updBadge(peerId); }
+  };
+  if(initiator){
+    for(let i=0;i<CH_PER_PC;i++) setupDc(peerId,e,pc.createDataChannel("f"+s+"_"+i,{ordered:false}));
+    pc.createOffer().then(o=>pc.setLocalDescription(o))
+      .then(()=>send({type:"rtc",to:peerId,slot:s,kind:"offer",sdp:pc.localDescription}))
+      .catch(()=>{ if(s===0){e.status="failed";updBadge(peerId);} });
+  } else pc.ondatachannel=ev=>setupDc(peerId,e,ev.channel);
+  return slot;
+}
+function setupDc(peerId,e,dc){
+  dc.binaryType="arraybuffer";
+  dc.bufferedAmountLowThreshold=1024*1024;
+  e.dcs.push(dc);
+  dc.onopen=()=>classify(peerId,e);
+  dc.onmessage=ev=>{ if(typeof ev.data!=="string") handleChunk(ev.data); };
+  dc.onclose=()=>{ if(e.dcs.every(d=>d.readyState!=="open")&&e.status!=="failed"){e.status="failed";updBadge(peerId);} };
+}
+function openDcs(e){ return e&&e.dcs?e.dcs.filter(d=>d.readyState==="open"):[]; }
+function pickDc(e){
+  let best=null;
+  for(const d of openDcs(e)) if(!best||d.bufferedAmount<best.bufferedAmount) best=d;
+  return best;
+}
+async function classify(peerId,e){
+  try{
+    const stats=await e.pc.getStats();
+    const by={}; let pair=null;
+    stats.forEach(r=>{ by[r.id]=r; });
+    stats.forEach(r=>{ if(r.type==="transport"&&r.selectedCandidatePairId) pair=by[r.selectedCandidatePairId]; });
+    if(!pair) stats.forEach(r=>{ if(r.type==="candidate-pair"&&r.state==="succeeded"&&(r.selected||!pair)) pair=r; });
+    const lc=pair&&by[pair.localCandidateId], rc=pair&&by[pair.remoteCandidateId];
+    let local=!!(lc&&rc&&lc.candidateType==="host"&&rc.candidateType==="host");
+    if(!local){ const p=peers.find(x=>x.id===peerId); if(p&&p.ip&&myMeta.ip&&p.ip===myMeta.ip) local=true; }
+    e.status=local?"local":"direct";
+  }catch{ e.status="direct"; }
+  updBadge(peerId);
+}
+async function handleRtc(m){
+  const e=ensureRtc(m.from,false);
+  const slot=e.slots[m.slot|0]; if(!slot) return;
+  const pc=slot.pc;
+  try{
+    if(m.kind==="offer"){
+      await pc.setRemoteDescription(m.sdp);
+      const a=await pc.createAnswer(); await pc.setLocalDescription(a);
+      send({type:"rtc",to:m.from,slot:m.slot|0,kind:"answer",sdp:pc.localDescription});
+      for(const c of slot.pendingIce) await pc.addIceCandidate(c).catch(()=>{}); slot.pendingIce=[];
+    } else if(m.kind==="answer"){
+      await pc.setRemoteDescription(m.sdp);
+      for(const c of slot.pendingIce) await pc.addIceCandidate(c).catch(()=>{}); slot.pendingIce=[];
+    } else if(m.kind==="ice"){
+      if(pc.remoteDescription) await pc.addIceCandidate(m.cand).catch(()=>{}); else slot.pendingIce.push(m.cand);
+    }
+  }catch{}
+}
+function dropRtc(peerId){
+  const e=rtc.get(peerId); if(!e) return;
+  for(const d of e.dcs) try{d.close()}catch{}
+  for(const s of e.slots) try{s.pc.close()}catch{}
+  rtc.delete(peerId);
+}
+function netLabel(peerId){
+  const e=rtc.get(peerId), st=e?e.status:"failed";
+  if(st==="local") return {cls:"local", txt:"⚡ Local"};
+  if(st==="connecting") return {cls:"", txt:"…"};
+  return {cls:"", txt:"🌐 Remote"};
+}
+function updBadge(peerId){
+  const card=document.getElementById("peer-"+peerId); if(!card) return;
+  const {cls,txt}=netLabel(peerId);
+  const b=card.querySelector(".netb"); b.className="netb "+cls; b.textContent=txt;
+}
+
+/* ---------- protocol ---------- */
+async function sendHello(){
+  let app=null;
+  if(TAURI){
+    try{ appInfo=await inv("get_settings"); }catch{}
+    if(appInfo){
+      app={v:appInfo.version, port:appInfo.port, ips:appInfo.ips||[]};
+      if(appInfo.nick&&!localStorage.getItem("share_nick")) localStorage.setItem("share_nick",appInfo.nick);
+      const osName={windows:"Windows",macos:"macOS",linux:"Linux"}[appInfo.os]||myMeta.ua.os;
+      myMeta.ua={os:osName, br:"App", dev:"Desktop"};
+    }
+  }
+  send({type:"hello", ua:myMeta.ua, nick:localStorage.getItem("share_nick")||"", did:myDid, app});
+}
+function handleJson(m){
+  switch(m.type){
+    case "welcome":{
+      myId=m.id; myMeta=m; myMeta.ua=parseUA();
+      for(const id of [...rtc.keys()]) dropRtc(id);
+      sendHello();
+      renderMe(); break;
+    }
+    case "peers":{
+      peers=(m.peers||[]).filter(p=>p.id!==myId&&!(p.did&&p.did===myDid));
+      for(const p of peers) if(!rtc.has(p.id)&&myId<p.id) ensureRtc(p.id,true);
+      const ids=new Set(peers.map(p=>p.id));
+      for(const id of [...rtc.keys()]) if(!ids.has(id)) dropRtc(id);
+      if(selId&&!ids.has(selId)) selId=null;
+      renderPeers(); pruneGonePeers(); break;
+    }
+    case "rtc": handleRtc(m); break;
+    case "offer": onOffer(m); break;
+    case "accept": onAccept(m); break;
+    case "decline": onDecline(m); break;
+    case "ack": onAck(m); break;
+    case "received": onReceived(m); break;
+    case "cancel": onCancel(m); break;
+    case "text": onText(m); break;
+    case "err": if(m.msg==="peer-gone") failTxByTid(m.tid,"device left"); break;
+  }
+}
+
+/* ---------- render: me ---------- */
+function renderMe(){
+  document.getElementById("myId").textContent=myId;
+  document.getElementById("myAvatar").textContent=devIcon(myMeta.ua);
+  document.getElementById("myName").textContent=localStorage.getItem("share_nick")||funName(myId);
+  const ua=myMeta.ua;
+  document.getElementById("myDevice").innerHTML=ua?`<b>${esc(ua.os)}</b> · ${esc(ua.br)} · ${esc(ua.dev)}`:"";
+  document.getElementById("myLoc").innerHTML=(myMeta.city||myMeta.country)?`📍 <b>${esc([myMeta.city,myMeta.country].filter(Boolean).join(", "))}</b>`:"";
+  document.getElementById("myIp").textContent=myMeta.ip?("IP "+myMeta.ip):"";
+}
+document.getElementById("editNick").onclick=()=>{
+  const n=prompt("Apna naam:",localStorage.getItem("share_nick")||"");
+  if(n===null) return;
+  localStorage.setItem("share_nick",n.trim()); send({type:"nick",nick:n.trim()}); renderMe();
+};
+
+/* ---------- target: selected (sticky, remembered per device) > most recent ---------- */
+// selection is stored by device-id so it survives reloads and reconnects
+function selectedPeer(){ return pinnedDid?peers.find(p=>p.did===pinnedDid):null; }
+function targetPeer(){
+  const s=selectedPeer(); if(s) return {p:s,why:"selected"};
+  const sorted=sortedPeers(); if(sorted.length&&recent[sorted[0].did]) return {p:sorted[0],why:"recent"};
+  return null;
+}
+function sortedPeers(){
+  return [...peers].sort((a,b)=>{
+    const ap=pinnedDid&&a.did===pinnedDid?1:0, bp=pinnedDid&&b.did===pinnedDid?1:0;
+    if(ap!==bp) return bp-ap;
+    const ar=recent[a.did]||0, br=recent[b.did]||0;
+    if(ar!==br) return br-ar;
+    return a.joined-b.joined;
+  });
+}
+function toggleSelect(p){
+  if(pinnedDid&&p.did===pinnedDid){ pinnedDid=""; }
+  else { pinnedDid=p.did||""; toast(`✅ <b>${esc(displayName(p))}</b> selected — ab page par kahin bhi drop / Ctrl+V karo`,"g"); }
+  localStorage.setItem("share_pin",pinnedDid); renderPeers();
+}
+function renderTargetBar(){
+  const bar=document.getElementById("targetBar");
+  const t=targetPeer();
+  if(!t){ bar.style.display="none"; document.body.classList.remove("hasTarget"); return; }
+  bar.style.display=""; document.body.classList.add("hasTarget");
+  const tag=t.why==="selected"?'<span class="tag sel">SELECTED</span>':'<span class="tag rec">RECENT</span>';
+  bar.innerHTML=`🎯 Drop files/folders <b>anywhere</b> on this page or press <kbd>Ctrl</kbd>+<kbd>V</kbd> → ${tag} <b>${esc(displayName(t.p))}</b>${t.why==="selected"?' · <span style="cursor:pointer;color:var(--accent)" id="unsel">deselect</span>':' · click a card to select it'}`;
+  const u=document.getElementById("unsel"); if(u) u.onclick=()=>{pinnedDid="";localStorage.setItem("share_pin","");renderPeers();};
+}
+
+/* ---------- render: peers ---------- */
+function renderPeers(){
+  document.getElementById("peerCount").textContent=peers.length;
+  document.getElementById("noPeers").style.display=peers.length?"none":"";
+  const grid=document.getElementById("peerGrid"); const have=new Set();
+  const order=sortedPeers();
+  for(const p of order){
+    have.add(p.id);
+    let card=document.getElementById("peer-"+p.id);
+    if(!card){
+      card=document.createElement("div"); card.className="peer"; card.id="peer-"+p.id;
+      card.innerHTML=`
+        <div class="corner"><span class="netb">…</span></div>
+        <div class="top"><div class="pavatar"></div><div><div class="pname"></div><div class="pmeta"></div></div></div>
+        <div class="pinfo"></div>
+        <div class="phint">📎 Drag files/folders here · <span class="pf">📄 files</span> · <span class="pd">📁 folder</span> · <span class="pt">📝 text</span> · <span class="ps" title="50 MB dummy transfer, nothing is saved on their side">⚡ speed test</span></div>
+        <div class="compose"><textarea rows="1" placeholder="Text / link paste karo → Send (Ctrl+Enter)"></textarea><button class="btn primary sm">Send ➤</button></div>
+        <input type="file" multiple hidden class="fi"><input type="file" webkitdirectory directory multiple hidden class="di">`;
+      grid.appendChild(card);
+      const fi=card.querySelector(".fi"), di=card.querySelector(".di");
+      card.querySelector(".pf").onclick=async e=>{e.stopPropagation(); if(TAURI){ const paths=await inv("pick_files"); for(const x of paths||[]) sendPath(p.id,x); } else fi.click();};
+      card.querySelector(".pd").onclick=async e=>{e.stopPropagation(); if(TAURI){ const x=await inv("pick_folder"); if(x) sendPath(p.id,x); } else di.click();};
+      fi.onchange=e=>{for(const f of e.target.files) sendFile(p.id,f); e.target.value="";};
+      di.onchange=e=>{ const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
+        const root=(files[0].webkitRelativePath||files[0].name).split("/")[0];
+        sendFolder(p.id,root,files.map(f=>({file:f,path:f.webkitRelativePath||f.name}))); };
+      const ta=card.querySelector("textarea"), sb=card.querySelector(".compose .btn"), comp=card.querySelector(".compose");
+      card.querySelector(".pt").onclick=e=>{e.stopPropagation(); comp.classList.toggle("open"); if(comp.classList.contains("open")) ta.focus();};
+      card.querySelector(".ps").onclick=e=>{e.stopPropagation(); sendBench(p.id);};
+      sb.onclick=e=>{e.stopPropagation(); const v=ta.value; if(v.trim()){sendText(p.id,v);ta.value="";}};
+      ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();sb.click();} });
+      ta.addEventListener("click",e=>e.stopPropagation());
+      card.addEventListener("click",e=>{ if(e.target.closest("button,textarea,input,.pf,.pd,.pt")) return; toggleSelect(p); });
+      card.addEventListener("dragover",e=>{e.preventDefault();card.classList.add("drag");});
+      card.addEventListener("dragleave",e=>{ if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+      card.addEventListener("drop",e=>{e.preventDefault();card.classList.remove("drag");handleDrop(p.id,e.dataTransfer);});
+    }
+    grid.appendChild(card); // re-append in sorted order
+    const isSel=!!(pinnedDid&&p.did===pinnedDid), isRec=!isSel&&!selectedPeer()&&recent[p.did]&&order[0]===p;
+    card.classList.toggle("sel",isSel);
+    card.querySelector(".pavatar").textContent=devIcon(p.ua);
+    card.querySelector(".pname").innerHTML=`${esc(displayName(p))}${p.app?' <span class="tag app" title="Desktop app v'+esc(p.app.v)+'">🖥 APP</span>':""}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}${isRec?' <span class="tag rec">RECENT</span>':""}`;
+    card.querySelector(".pmeta").innerHTML=`<span class="idtag">${p.id}</span> · online ${fmtSince(p.joined)}`;
+    const ua=p.ua||{};
+    card.querySelector(".pinfo").innerHTML=`
+      <span>💻 <b>${esc(ua.os||"?")}</b> · ${esc(ua.br||"?")}</span><span>${esc(ua.dev||"")}</span>
+      <span>📍 <b>${esc([p.city,p.country].filter(Boolean).join(", ")||"—")}</b></span><span>IP ${esc(p.ip||"—")}</span>`;
+    updBadge(p.id);
+  }
+  for(const el of [...grid.children]) if(!have.has(el.id.slice(5))) el.remove();
+  renderTargetBar();
+}
+setInterval(()=>{ for(const p of peers){ const c=document.getElementById("peer-"+p.id); if(c) c.querySelector(".pmeta").innerHTML=`<span class="idtag">${p.id}</span> · online ${fmtSince(p.joined)}`; } },30000);
+function pruneGonePeers(){
+  const ids=new Set(peers.map(p=>p.id));
+  for(const t of transfers.values()) if(t.state!=="done"&&t.state!=="fail"&&!ids.has(t.peer)) failTx(t,"device left");
+}
+
+/* ---------- page-wide drop → selected device (cards still take their own drops) ---------- */
+let dragDepth=0;
+document.addEventListener("dragenter",e=>{
+  const t=selectedPeer(); if(!t) return;
+  if(!(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))) return;
+  dragDepth++; document.body.dataset.target=displayName(t); document.body.classList.add("pagedrag");
+});
+document.addEventListener("dragleave",()=>{ if(--dragDepth<=0){dragDepth=0;document.body.classList.remove("pagedrag");} });
+document.addEventListener("dragover",e=>{ if(selectedPeer()) e.preventDefault(); });
+document.addEventListener("drop",e=>{
+  dragDepth=0; document.body.classList.remove("pagedrag");
+  if(e.target.closest&&e.target.closest(".peer")) return; // card handled it
+  const t=selectedPeer(); if(!t) return;
+  e.preventDefault(); handleDrop(t.id,e.dataTransfer);
+});
+
+/* ---------- global paste → target device ---------- */
+document.addEventListener("paste",e=>{
+  const tag=(e.target&&e.target.tagName||"").toLowerCase();
+  if(tag==="textarea"||tag==="input") return;
+  const t=targetPeer(); if(!t){ toast("Pehle koi device select ya pin karo, phir Ctrl+V","r"); return; }
+  const cd=e.clipboardData; if(!cd) return;
+  const files=[...(cd.files||[])];
+  if(files.length){ e.preventDefault(); files.forEach((f,i)=>sendFile(t.p.id,f.name?f:new File([f],"pasted-"+(i+1)+"."+(f.type.split("/")[1]||"bin"),{type:f.type}))); return; }
+  const txt=cd.getData("text/plain");
+  if(txt&&txt.trim()){ e.preventDefault(); sendText(t.p.id,txt); }
+});
+document.getElementById("clearAct").onclick=()=>{
+  for(const [k,t] of transfers) if(t.state==="done"||t.state==="fail"){ t.el&&t.el.remove(); transfers.delete(k); }
+  if(!document.getElementById("txList").children.length) document.getElementById("txHead").style.display="none";
+};
+
+/* ---- drop handling: files + folders (folders → zip on the fly) ---- */
+async function handleDrop(peer,dt){
+  const items=dt.items?[...dt.items]:[];
+  const entries=items.map(it=>it.webkitGetAsEntry?it.webkitGetAsEntry():null);
+  if(!entries.some(Boolean)){ for(const f of dt.files) sendFile(peer,f); return; }
+  for(let i=0;i<entries.length;i++){
+    const en=entries[i]; if(!en) continue;
+    if(en.isFile){ const f=dt.files[i]||await new Promise(r=>en.file(r)); if(f) sendFile(peer,f); }
+    else if(en.isDirectory){
+      const list=[]; await walkDir(en,en.name,list);
+      if(list.length) sendFolder(peer,en.name,list); else toast(`Folder <b>${esc(en.name)}</b> khali hai`,"r");
+    }
+  }
+}
+function readAll(reader){ return new Promise(res=>{ const out=[]; (function next(){ reader.readEntries(es=>{ if(!es.length) return res(out); out.push(...es); next(); },()=>res(out)); })(); }); }
+async function walkDir(dirEntry,prefix,out){
+  const es=await readAll(dirEntry.createReader());
+  for(const e of es){
+    if(e.isFile){ const f=await new Promise(r=>e.file(r,()=>r(null))); if(f) out.push({file:f,path:prefix+"/"+e.name}); }
+    else if(e.isDirectory) await walkDir(e,prefix+"/"+e.name,out);
+  }
+}
+
+/* ---------- speed meter (instantaneous, sliding 1.2s window) ---------- */
+function meter(){ return {samples:[],t0:performance.now(),final:null}; }
+function meterPush(mt,bytes){
+  const now=performance.now(); mt.samples.push([now,bytes]);
+  while(mt.samples.length>2&&now-mt.samples[0][0]>1200) mt.samples.shift();
+}
+function meterRate(mt){
+  const s=mt.samples; if(s.length<2) return 0;
+  const dt=s[s.length-1][0]-s[0][0], db=s[s.length-1][1]-s[0][1];
+  return dt>0?db/(dt/1000):0;
+}
+function setSpeed(t,bps){
+  if(!t.el) return;
+  const mbps=bps/1048576, el=t.el.querySelector(".spd");
+  el.innerHTML=mbps>=1?mbps.toFixed(1)+"<small>MB/s</small>":(mbps*1024).toFixed(0)+"<small>KB/s</small>";
+}
+
+/* ---------- byte sources ---------- */
+const BLOCK=8*1024*1024;
+async function* blobSource(file){ // read-ahead: next block loads while current one sends
+  let off=0, nextP=file.slice(0,Math.min(BLOCK,file.size)).arrayBuffer();
+  while(off<file.size){
+    const buf=await nextP; off+=buf.byteLength;
+    nextP=off<file.size?file.slice(off,off+BLOCK).arrayBuffer():null;
+    yield new Uint8Array(buf);
+  }
+}
+/* --- streaming STORE zip (no compression = full LAN speed), zip64 when needed --- */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c;}return t;})();
+function crc32(crc,u8){ crc=~crc; for(let i=0;i<u8.length;i++) crc=CRC_T[(crc^u8[i])&0xFF]^(crc>>>8); return ~crc>>>0; }
+function dosTime(ms){ const d=new Date(ms||Date.now()); return {t:((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF, d:(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF}; }
+function zipPlan(list){
+  const enc=new TextEncoder();
+  const items=list.map(x=>({file:x.file,name:enc.encode(x.path.replace(/\\/g,"/")),size:x.file.size}));
+  const dataTotal=items.reduce((a,x)=>a+x.size,0);
+  const z64=dataTotal>=0xFFFFFFF0||items.some(x=>x.size>=0xFFFFFFFF)||items.length>=0xFFFF||true; // always zip64: simplest, universally readable
+  let total=0;
+  for(const it of items) total+=30+it.name.length+(z64?20:0)+it.size+(z64?24:16);
+  for(const it of items) total+=46+it.name.length+(z64?28:0);
+  total+=(z64?56+20:0)+22;
+  return {items,total,z64};
+}
+async function* zipSource(plan){
+  const {items,z64}=plan;
+  const W=(n)=>new Uint8Array(n); let off=0;
+  const cd=[];
+  for(const it of items){
+    const {t,d}=dosTime(it.file.lastModified);
+    const hl=30+it.name.length+(z64?20:0), h=W(hl), v=new DataView(h.buffer);
+    v.setUint32(0,0x04034b50,true); v.setUint16(4,z64?45:20,true); v.setUint16(6,0x0808,true); v.setUint16(8,0,true);
+    v.setUint16(10,t,true); v.setUint16(12,d,true); v.setUint32(14,0,true);
+    v.setUint32(18,z64?0xFFFFFFFF:0,true); v.setUint32(22,z64?0xFFFFFFFF:0,true);
+    v.setUint16(26,it.name.length,true); v.setUint16(28,z64?20:0,true);
+    h.set(it.name,30);
+    if(z64){ const o=30+it.name.length; v.setUint16(o,1,true); v.setUint16(o+2,16,true); /* sizes 0 in local (descriptor has real) */ }
+    const localOff=off; off+=hl; yield h;
+    let crc=0;
+    for await(const blk of blobSource(it.file)){ crc=crc32(crc,blk); off+=blk.byteLength; yield blk; }
+    const dl=z64?24:16, ds=W(dl), dv=new DataView(ds.buffer);
+    dv.setUint32(0,0x08074b50,true); dv.setUint32(4,crc,true);
+    if(z64){ dv.setBigUint64(8,BigInt(it.size),true); dv.setBigUint64(16,BigInt(it.size),true); }
+    else { dv.setUint32(8,it.size,true); dv.setUint32(12,it.size,true); }
+    off+=dl; yield ds;
+    cd.push({it,crc,localOff,t,d});
+  }
+  const cdStart=off; let cdSize=0;
+  for(const {it,crc,localOff,t,d} of cd){
+    const el=46+it.name.length+(z64?28:0), c=W(el), v=new DataView(c.buffer);
+    v.setUint32(0,0x02014b50,true); v.setUint16(4,z64?45:20,true); v.setUint16(6,z64?45:20,true); v.setUint16(8,0x0808,true); v.setUint16(10,0,true);
+    v.setUint16(12,t,true); v.setUint16(14,d,true); v.setUint32(16,crc,true);
+    v.setUint32(20,z64?0xFFFFFFFF:it.size,true); v.setUint32(24,z64?0xFFFFFFFF:it.size,true);
+    v.setUint16(28,it.name.length,true); v.setUint16(30,z64?28:0,true); v.setUint16(32,0,true); v.setUint16(34,0,true); v.setUint16(36,0,true);
+    v.setUint32(38,0,true); v.setUint32(42,z64?0xFFFFFFFF:localOff,true);
+    c.set(it.name,46);
+    if(z64){ const o=46+it.name.length; v.setUint16(o,1,true); v.setUint16(o+2,24,true); v.setBigUint64(o+4,BigInt(it.size),true); v.setBigUint64(o+12,BigInt(it.size),true); v.setBigUint64(o+20,BigInt(localOff),true); }
+    cdSize+=el; off+=el; yield c;
+  }
+  if(z64){
+    const e=W(56), v=new DataView(e.buffer);
+    v.setUint32(0,0x06064b50,true); v.setBigUint64(4,44n,true); v.setUint16(12,45,true); v.setUint16(14,45,true);
+    v.setUint32(16,0,true); v.setUint32(20,0,true); v.setBigUint64(24,BigInt(cd.length),true); v.setBigUint64(32,BigInt(cd.length),true);
+    v.setBigUint64(40,BigInt(cdSize),true); v.setBigUint64(48,BigInt(cdStart),true);
+    yield e;
+    const l=W(20), lv=new DataView(l.buffer);
+    lv.setUint32(0,0x07064b50,true); lv.setUint32(4,0,true); lv.setBigUint64(8,BigInt(off),true); lv.setUint32(16,1,true);
+    off+=56; yield l; off+=20;
+  }
+  const eo=W(22), ev=new DataView(eo.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(4,0,true); ev.setUint16(6,0,true);
+  ev.setUint16(8,z64?0xFFFF:cd.length,true); ev.setUint16(10,z64?0xFFFF:cd.length,true);
+  ev.setUint32(12,z64?0xFFFFFFFF:cdSize,true); ev.setUint32(16,z64?0xFFFFFFFF:cdStart,true); ev.setUint16(20,0,true);
+  yield eo;
+}
+
+/* ---------- transfers: send ---------- */
+function txKey(peer,tid){return peer+":"+tid;}
+function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,entries}){
+  const tid=(++tidCounter)>>>0;
+  const t={tid,peer,dir:"out",kind:bench?"bench":astext?"textfile":"file",name,size,mime:mime||"application/octet-stream",
+           source,sent:0,ackedSeq:-1,state:"offer",el:null,mt:meter(),label,native:native||null,entries:entries||null};
+  transfers.set(txKey(peer,tid),t); renderTx(t);
+  send({type:"offer",to:peer,tid,name,size,mime:t.mime,astext:!!astext,bench:!!bench,native:native||null});
+  updTx(t,"Connecting…"); touchPeer(peer);
+}
+function sendFile(peer,file){
+  if(!file||!file.size){toast("Empty file skip kiya","r");return;}
+  startTransfer(peer,{name:file.name,size:file.size,mime:file.type,source:()=>blobSource(file)});
+}
+const BENCH_MB=50;
+async function* zeroSource(total){ const blk=new Uint8Array(BLOCK); let off=0; while(off<total){ const n=Math.min(BLOCK,total-off); yield n===BLOCK?blk:blk.subarray(0,n); off+=n; } }
+function sendBench(peer){
+  const size=BENCH_MB*1048576;
+  startTransfer(peer,{name:"⚡ Speed test",size,mime:"application/octet-stream",source:()=>zeroSource(size),bench:true,label:"nothing saved"});
+}
+function sendFolder(peer,rootName,list){
+  const plan=zipPlan(list);
+  if(!plan.items.length){ toast("Folder khali hai","r"); return; }
+  startTransfer(peer,{name:rootName+".zip",size:plan.total,mime:"application/zip",source:()=>zipSource(plan),label:`📁 ${plan.items.length} files`});
+  toast(`📁 <b>${esc(rootName)}</b> — ${plan.items.length} files, ${fmtSize(plan.total)} — zipping on the fly`);
+}
+function onAccept(m){
+  const t=transfers.get(txKey(m.from,m.tid)); if(!t||t.dir!=="out"||t.state!=="offer") return;
+  t.state="sending";
+  if(t.native&&m.tcp&&TAURI) nativeSend(t,m.tcp); else if(t.source) pump(t); else failTx(t,"peer can't receive natively");
+}
+function onDecline(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t&&t.dir==="out") failTx(t,"declined"); }
+function onAck(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t){ t.ackedSeq=Math.max(t.ackedSeq,m.seq); if(t.wake){const w=t.wake;t.wake=null;w();} } }
+// macrotask yield that background-tab timer throttling can't slow down
+function yieldTask(){ return new Promise(r=>{ const c=new MessageChannel(); c.port1.onmessage=()=>r(); c.port2.postMessage(0); }); }
+function waitAckOrTick(t){ return new Promise(r=>{ t.wake=r; setTimeout(r,120); }); }
+function onReceived(m){
+  const t=transfers.get(txKey(m.from,m.tid));
+  if(t&&t.dir==="out"){
+    t.state="done";
+    const secs=(performance.now()-t.mt.t0)/1000;
+    if(t.kind==="file"||t.kind==="bench"){ setSpeed(t,t.size/Math.max(secs,.001)); updTx(t,`${t.kind==="bench"?"⚡ Result":"Delivered ✓"} ${t.viaTxt||""} · ${secs.toFixed(1)}s`); }
+    else updTx(t,"Delivered ✓ — copied on their device");
+    t.el.classList.add("done"); toast(`<b>${esc(t.name)}</b> delivered ✓`,"g");
+  }
+}
+function onCancel(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t) failTx(t,"cancelled"); }
+function buildFrame(idStr,tid,seq,payloadU8){
+  const frame=new Uint8Array(17+payloadU8.byteLength);
+  frame[0]=1; for(let i=0;i<8;i++) frame[i+1]=idStr.charCodeAt(i);
+  const dv=new DataView(frame.buffer); dv.setUint32(9,tid); dv.setUint32(13,seq);
+  frame.set(payloadU8,17); return frame;
+}
+function dcDrain(dc){
+  if(dc.bufferedAmount<=dc.bufferedAmountLowThreshold) return Promise.resolve();
+  return new Promise(r=>{
+    let done=false;
+    const h=()=>{ if(done) return; done=true; dc.removeEventListener("bufferedamountlow",h); r(); };
+    dc.addEventListener("bufferedamountlow",h);
+    setTimeout(h,250); // safety only — the event is the fast path
+  });
+}
+async function pump(t){
+  const HIGH=4*1024*1024; // per-channel high water
+  let seq=0, offset=0, lastUi=0;
+  for await(const block of t.source()){
+    if(t.state!=="sending") return;
+    let bo=0;
+    while(bo<block.byteLength){
+      if(t.state!=="sending") return;
+      const e=rtc.get(t.peer);
+      const dc=pickDc(e), dcOpen=!!dc;
+      let chunk=CHUNK;
+      if(dcOpen){
+        const mms=(e.pc.sctp&&e.pc.sctp.maxMessageSize)||65536;
+        chunk=Math.max(16384,Math.min(262144,mms-64));
+        if(dc.bufferedAmount>HIGH){ await dcDrain(dc); continue; }
+      } else {
+        if(!ws||ws.readyState!==1){ failTx(t,"connection lost"); return; }
+        if(seq-t.ackedSeq>WINDOW){ await waitAckOrTick(t); continue; }
+        if(ws.bufferedAmount>8e6){ await yieldTask(); continue; }
+      }
+      const payload=block.subarray(bo,Math.min(bo+chunk,block.byteLength));
+      const frame=buildFrame(dcOpen?myId:t.peer,t.tid,seq,payload);
+      try{ if(dcOpen) dc.send(frame); else ws.send(frame); }
+      catch{ await yieldTask(); continue; }
+      const via=dcOpen?(e.status==="local"?"⚡ LAN direct":"🔗 P2P direct"):"☁ cloud relay";
+      t.viaTxt="via "+via;
+      bo+=payload.byteLength; offset+=payload.byteLength; seq++; t.sent=offset;
+      const now=performance.now();
+      if(now-lastUi>150||offset>=t.size){
+        lastUi=now;
+        // count only bytes that left the local buffers
+        let buffered=0; if(dcOpen) for(const d of openDcs(e)) buffered+=d.bufferedAmount; else buffered=ws.bufferedAmount;
+        meterPush(t.mt,Math.max(0,offset-buffered));
+        updTx(t,`Sending ${via}… ${fmtSize(offset)} / ${fmtSize(t.size)}`);
+        setSpeed(t,meterRate(t.mt));
+      }
+    }
+  }
+  if(offset!==t.size){ failTx(t,"size mismatch ("+offset+"/"+t.size+")"); return; }
+  updTx(t,"Finishing…");
+}
+
+/* ---------- streaming download (service worker) ---------- */
+const STREAM_MIN=48*1024*1024; // below this a Blob is simpler & instant; above → stream to disk
+let swReady=null;
+const canStream=!TAURI&&("serviceWorker" in navigator)&&!/iPhone|iPad/.test(navigator.userAgent)&&location.protocol==="https:";
+const diskBySid=new Map(); // app: Rust session id → transfer
+if(canStream){
+  swReady=navigator.serviceWorker.register("/sw.js").then(()=>navigator.serviceWorker.ready).then(r=>r.active||navigator.serviceWorker.controller).catch(()=>null);
+}
+async function openStream(name,size){
+  const sw=await swReady; if(!sw) return null;
+  const url=location.origin+"/dl/"+Math.random().toString(36).slice(2)+"/"+encodeURIComponent(name);
+  const mc=new MessageChannel();
+  const ready=new Promise((res,rej)=>{
+    const to=setTimeout(()=>rej(new Error("sw timeout")),4000);
+    mc.port1.onmessage=ev=>{ if(ev.data&&ev.data.type==="ready"){clearTimeout(to);res();} };
+  });
+  sw.postMessage({type:"stream",url,name,size},[mc.port2]);
+  try{ await ready; }catch{ return null; }
+  const fr=document.createElement("iframe"); fr.hidden=true; fr.src=url; document.body.appendChild(fr);
+  setTimeout(()=>fr.remove(),120000);
+  return {
+    write(buf,off){ mc.port1.postMessage({type:"chunk",buf,off},[buf]); },
+    end(){ mc.port1.postMessage({type:"end"}); },
+    abort(){ mc.port1.postMessage({type:"abort"}); },
+  };
+}
+
+/* ---------- transfers: receive ---------- */
+async function onOffer(m){
+  const key=txKey(m.from,m.tid); if(transfers.has(key)) return;
+  const t={tid:m.tid,peer:m.from,dir:"in",kind:m.bench?"bench":m.astext?"textfile":"file",name:m.name,size:m.size,mime:m.mime,
+           chunks:[],got:0,state:"receiving",el:null,fromNick:m.fromNick,mt:meter(),lastUi:0,
+           stream:null,next:0,pending:new Map(),seen:new Set()};
+  transfers.set(key,t); renderTx(t);
+  let acceptExtra={};
+  if(t.kind==="bench"){ t.chunks=null; t.label="nothing saved"; }
+  else if(t.kind==="file"&&TAURI){
+    // desktop app: everything lands directly on disk (Rust), never in RAM
+    try{
+      const entries=(m.native&&m.native.entries)||[{rel:m.name,size:m.size}];
+      const ses=await inv("recv_session",{entries,total:m.size,root:(m.native&&m.native.root)||null});
+      t.disk={sid:ses.sid,path:ses.path,wq:Promise.resolve(),next:0,pending:new Map()};
+      t.chunks=null; diskBySid.set(ses.sid,t);
+      if(m.native){ // sender is an app too → offer the LAN TCP fast path
+        try{ appInfo=await inv("get_settings"); }catch{}
+        acceptExtra={tcp:{token:ses.token,port:appInfo.port,ips:appInfo.ips||[]}};
+        t.nativeIn=true;
+      }
+    }catch(err){ failTx(t,"disk: "+err); send({type:"decline",to:t.peer,tid:t.tid}); return; }
+  }
+  else if(t.kind==="file"&&canStream&&t.size>=STREAM_MIN){
+    updTx(t,"Preparing disk stream…");
+    t.stream=await openStream(t.name,t.size); // null → RAM fallback
+    if(t.stream){ t.chunks=null; }
+  }
+  send(Object.assign({type:"accept",to:t.peer,tid:t.tid},acceptExtra)); touchPeer(t.peer);
+  updTx(t,"Receiving…"+(t.stream||t.disk?" (straight to disk)":""));
+  toast(`📥 <b>${esc(t.fromNick||funName(t.peer))}</b> is sending <b>${esc(t.name)}</b> (${fmtSize(t.size)})`);
+}
+function handleChunk(buf){
+  const u8=new Uint8Array(buf);
+  if(u8.length<17||u8[0]!==1) return;
+  let from=""; for(let i=1;i<9;i++) from+=String.fromCharCode(u8[i]);
+  const dv=new DataView(buf);
+  const tid=dv.getUint32(9), seq=dv.getUint32(13);
+  const t=transfers.get(txKey(from,tid));
+  if(!t||t.dir!=="in"||t.state!=="receiving") return;
+  const len=u8.length-17;
+  if(t.kind==="bench"){
+    if(t.seen.has(seq)) return; t.seen.add(seq);
+  } else if(t.disk){
+    // app: in-order positional writes via Rust (offset = running byte count)
+    const d=t.disk;
+    if(seq<d.next||d.pending.has(seq)) return;
+    const put=(b)=>{ const off=d.off||0; const bytes=b.slice(17); d.off=off+bytes.byteLength;
+      d.wq=d.wq.then(()=>inv("recv_write",bytes,{headers:{"x-sid":String(d.sid),"x-off":String(off)}})).catch(err=>{failTx(t,"write: "+err);}); };
+    if(seq===d.next){ put(buf); d.next++; while(d.pending.has(d.next)){ const p=d.pending.get(d.next); d.pending.delete(d.next); put(p); d.next++; } }
+    else d.pending.set(seq,buf);
+  } else if(t.stream){
+    // in-order write to disk; unordered channels may deliver out of order → small reorder buffer
+    if(seq<t.next||t.pending.has(seq)) return;
+    if(seq===t.next){
+      t.stream.write(buf,17); t.next++;
+      while(t.pending.has(t.next)){ const p=t.pending.get(t.next); t.pending.delete(t.next); t.stream.write(p,17); t.next++; }
+    } else t.pending.set(seq,buf);
+  } else {
+    if(t.chunks[seq]) return;
+    t.chunks[seq]=new Uint8Array(buf,17); // view, no copy
+  }
+  t.got+=len;
+  if(seq%ACK_EVERY===0||t.got>=t.size) send({type:"ack",to:from,tid,seq});
+  const now=performance.now();
+  if(now-t.lastUi>150||t.got>=t.size){
+    t.lastUi=now; meterPush(t.mt,t.got);
+    updTx(t,`Receiving… ${fmtSize(t.got)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt));
+  }
+  if(t.got>=t.size) finishReceive(t);
+}
+async function finishReceive(t){
+  t.state="done";
+  send({type:"received",to:t.peer,tid:t.tid});
+  const secs=(performance.now()-t.mt.t0)/1000;
+  setSpeed(t,t.size/Math.max(secs,.001));
+  if(t.kind==="bench"){
+    const mbps=(t.size/1048576/Math.max(secs,.001)).toFixed(1);
+    updTx(t,`Speed test done · ${secs.toFixed(1)}s · nothing saved`); t.el.classList.add("done");
+    toast(`⚡ Speed test from <b>${esc(t.fromNick||funName(t.peer))}</b>: <b>${mbps} MB/s</b>`,"g");
+    return;
+  }
+  if(t.kind==="textfile"){
+    const text=await new Blob(t.chunks).text(); t.chunks=null;
+    t.text=text; t.name="Text from "+(t.fromNick||funName(t.peer))+" ("+fmtSize(text.length)+")";
+    // rebuild card as a text card
+    const old=t.el; t.el=null; renderTx(t); old&&old.remove(); t.el.classList.add("done");
+    const ok=await tryCopy(text); markCopied(t,ok);
+    if(ok) toast(`📋 Big text from <b>${esc(t.fromNick||funName(t.peer))}</b> — <b>auto-copied</b>`,"g");
+    else { pendingCopy=t; toast(`📋 Text aaya — page par click karo, auto-copy ho jayega`); }
+    return;
+  }
+  if(t.disk){
+    await t.disk.wq; try{ await inv("recv_close",{sid:t.disk.sid}); }catch{}
+    diskBySid.delete(t.disk.sid);
+    updTx(t,`Saved ✓ · ${secs.toFixed(1)}s · <a href="#" class="reveal">📂 show in folder</a>`);
+    t.el.querySelector(".reveal").onclick=e=>{e.preventDefault(); inv("reveal_path",{path:t.disk.path}).catch(()=>inv("open_download_dir"));};
+    t.el.classList.add("done");
+    toast(`✅ <b>${esc(t.name)}</b> saved`,"g");
+    return;
+  }
+  if(t.stream){ t.stream.end(); }
+  else {
+    const blob=new Blob(t.chunks,{type:t.mime}); t.chunks=null;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=t.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  updTx(t,`Downloaded ✓ · ${secs.toFixed(1)}s`);
+  t.el.classList.add("done");
+  toast(`✅ <b>${esc(t.name)}</b> downloaded`,"g");
+}
+
+/* ---------- text share ---------- */
+function sendText(peer,text){
+  if(text.length>MAX_TEXT){
+    // unlimited: big text rides the chunked file pipeline, receiver shows it as text + auto-copies
+    const blob=new Blob([text],{type:"text/plain"});
+    startTransfer(peer,{name:"text.txt",size:blob.size,mime:"text/plain",source:()=>blobSource(blob),astext:true,label:"📝 big text"});
+    return;
+  }
+  const tid=(++tidCounter)>>>0;
+  const t={tid,peer,dir:"out",kind:"text",name:"Text ("+text.length+" chars)",text,state:"sending",el:null,mt:meter()};
+  transfers.set(txKey(peer,tid),t); renderTx(t);
+  send({type:"text",to:peer,tid,text});
+  updTx(t,"Sending…"); touchPeer(peer);
+}
+let pendingCopy=null;
+async function tryCopy(text){
+  try{ await navigator.clipboard.writeText(text); return true; }catch{ return false; }
+}
+async function onText(m){
+  const key=txKey(m.from,m.tid); if(transfers.has(key)) return;
+  const text=String(m.text||"");
+  const t={tid:m.tid,peer:m.from,dir:"in",kind:"text",name:"Text from "+(m.fromNick||funName(m.from)),text,state:"done",el:null,mt:meter()};
+  transfers.set(key,t); renderTx(t); t.el.classList.add("done");
+  send({type:"received",to:t.peer,tid:t.tid}); touchPeer(t.peer);
+  const ok=await tryCopy(text);
+  markCopied(t,ok);
+  if(ok) toast(`📋 Text from <b>${esc(m.fromNick||funName(m.from))}</b> — <b>auto-copied</b> to clipboard`,"g");
+  else { pendingCopy=t; toast(`📋 Text from <b>${esc(m.fromNick||funName(m.from))}</b> aaya — page par click karo, auto-copy ho jayega`); }
+}
+function markCopied(t,ok){
+  if(!t.el) return;
+  const c=t.el.querySelector(".copied"); if(c) c.textContent=ok?"✓ copied to clipboard":"";
+  updTx(t,ok?"Received · auto-copied":"Received — click Copy");
+}
+// retry auto-copy once the page gets focus / a click
+async function retryCopy(){ if(!pendingCopy) return; const t=pendingCopy; if(await tryCopy(t.text)){ pendingCopy=null; markCopied(t,true); toast("📋 Auto-copied ✓","g"); } }
+window.addEventListener("focus",retryCopy);
+document.addEventListener("pointerdown",retryCopy,{capture:true});
+document.addEventListener("keydown",retryCopy,{capture:true});
+
+/* ---------- activity ui ---------- */
+function renderTx(t){
+  document.getElementById("txHead").style.display="";
+  const el=document.createElement("div");
+  const who=t.dir==="out"?"→ "+peerName(t.peer):"← "+(t.fromNick||peerName(t.peer));
+  const isTextCard=t.text!=null;
+  el.className="tx"+(isTextCard?" text "+t.dir:"");
+  if(!isTextCard){
+    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span class="spd"></span></div><div class="st"></div><div class="bar"><i></i></div>`;
+  } else {
+    const CAP=20000, shown=t.text.length>CAP?t.text.slice(0,CAP):t.text;
+    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📝":"📋"} ${esc(t.name)} <span class="peer">${esc(who)}</span></span></div>
+      <div class="txt">${esc(shown)}${t.text.length>CAP?`\n… (+${fmtSize(t.text.length-CAP)} more — Copy gives full text)`:""}</div>
+      <div class="txtacts"><button class="btn sm cp">📋 Copy</button><span class="copied"></span><span class="st" style="margin:0"></span></div>`;
+    el.querySelector(".cp").onclick=async()=>{ const ok=await tryCopy(t.text); markCopied(t,ok); if(ok) toast("Copied ✓","g"); };
+  }
+  t.el=el; document.getElementById("txList").prepend(el);
+}
+function updTx(t,txt){
+  if(!t.el) return;
+  t.el.querySelector(".st").innerHTML=txt;
+  const bar=t.el.querySelector(".bar i");
+  if(bar&&t.size){ const done=t.dir==="out"?t.sent:t.got; bar.style.width=Math.min(100,done/t.size*100)+"%"; }
+}
+function failTx(t,why){
+  if(t.state==="done"||t.state==="fail") return;
+  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear();
+  if(t.stream){ try{t.stream.abort()}catch{} }
+  if(t.disk){ diskBySid.delete(t.disk.sid); inv("recv_abort",{sid:t.disk.sid}).catch(()=>{}); }
+  if(t.dir==="out"&&t.native&&TAURI) inv("tcp_cancel",{key:txKey(t.peer,t.tid)}).catch(()=>{});
+  if(t.el){t.el.classList.add("fail");updTx(t,"Failed — "+why);}
+}
+function failTxByTid(tid,why){ for(const t of transfers.values()) if(t.tid===tid&&t.state!=="done") failTx(t,why); }
+
+/* ================= desktop app (Tauri) integration ================= */
+// A "file" backed by a native path — quacks enough like a File for blobSource/zipSource.
+function pathFile(path,name,size,mtime){
+  return {name,size,type:"",lastModified:mtime||Date.now(),path,
+    slice(a,b){ const off=a||0, len=Math.max(0,(b==null?size:b)-off); return {arrayBuffer:()=>inv("read_range",{path,offset:off,len})}; }};
+}
+async function sendPath(peer,path){
+  if(!TAURI) return;
+  const p=peers.find(x=>x.id===peer); if(!p) return;
+  let st; try{ st=await inv("stat_path",{path}); }catch(e){ toast("Cannot read: "+esc(String(e)),"r"); return; }
+  const bothApps=!!(p.app&&p.app.port);
+  if(st.is_dir){
+    const list=await inv("list_dir",{path});
+    if(!list.length){ toast(`Folder <b>${esc(st.name)}</b> khali hai`,"r"); return; }
+    const total=list.reduce((a,e)=>a+e.size,0);
+    if(bothApps){
+      startTransfer(peer,{name:st.name+"/",size:total,mime:"inode/directory",native:{entries:list.map(e=>({rel:e.rel,size:e.size})),root:st.name},
+        entries:list.map(e=>({path:e.path,rel:e.rel,size:e.size})),label:`📁 ${list.length} files · LAN direct`});
+    } else {
+      sendFolder(peer,st.name,list.map(e=>({file:pathFile(e.path,e.rel.split("/").pop(),e.size,e.mtime),path:e.rel})));
+    }
+  } else {
+    if(!st.size){ toast("Empty file skip kiya","r"); return; }
+    const pf=pathFile(path,st.name,st.size,st.mtime);
+    if(bothApps){
+      startTransfer(peer,{name:st.name,size:st.size,mime:"application/octet-stream",native:{entries:[{rel:st.name,size:st.size}]},
+        entries:[{path,rel:st.name,size:st.size}],source:()=>blobSource(pf),label:"LAN direct"});
+    } else startTransfer(peer,{name:st.name,size:st.size,mime:"application/octet-stream",source:()=>blobSource(pf)});
+  }
+}
+// sender: LAN TCP fast path (falls back to WebRTC for single files if no route)
+async function nativeSend(t,tcp){
+  const key=txKey(t.peer,t.tid);
+  t.viaTxt="via ⚡ LAN TCP";
+  updTx(t,"Connecting on LAN…");
+  try{
+    await inv("tcp_send",{key,hosts:tcp.ips||[],port:tcp.port,token:tcp.token,entries:t.entries,streams:4});
+    t.sent=t.size; meterPush(t.mt,t.size); updTx(t,"Finishing…");
+  }catch(err){
+    const msg=String(err);
+    if(t.state!=="sending") return;
+    if(/no LAN route/i.test(msg)&&t.source){ // different network → WebRTC/relay into the same disk session
+      toast("No LAN route — falling back to P2P/relay");
+      t.native=null; pump(t);
+    } else if(/no LAN route/i.test(msg)&&t.entries&&t.entries.length){ // folder: cancel native, resend as zip
+      send({type:"cancel",to:t.peer,tid:t.tid}); failTx(t,"no LAN route → resending as zip");
+      const root=t.name.replace(/\/$/,"");
+      sendFolder(t.peer,root,t.entries.map(e=>({file:pathFile(e.path,e.rel.split("/").pop(),e.size,0),path:e.rel})));
+    } else failTx(t,msg);
+  }
+}
+if(TAURI){
+  // progress events from Rust
+  tauriListen("tx-progress",e=>{ const {key,sent}=e.payload; const t=transfers.get(key); if(!t||t.state!=="sending") return;
+    t.sent=sent; meterPush(t.mt,sent); updTx(t,`Sending ⚡ LAN TCP… ${fmtSize(sent)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt)); });
+  tauriListen("rx-progress",e=>{ const {sid,got}=e.payload; const t=diskBySid.get(sid); if(!t||t.state!=="receiving") return;
+    if(t.nativeIn){ t.got=got; meterPush(t.mt,got); updTx(t,`Receiving ⚡ LAN TCP… ${fmtSize(got)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt)); } });
+  tauriListen("rx-done",e=>{ const t=diskBySid.get(e.payload.sid); if(!t||t.state!=="receiving") return; t.got=t.size; finishReceive(t); });
+
+  // native drag & drop (HTML5 drop events don't fire in the webview)
+  let dropHi=null;
+  const clearHi=()=>{ document.body.classList.remove("pagedrag"); if(dropHi){dropHi.classList.remove("drag");dropHi=null;} };
+  const cardAt=(pos)=>{ const s=window.devicePixelRatio||1; const el=document.elementFromPoint(pos.x/s,pos.y/s); return el&&el.closest?el.closest(".peer"):null; };
+  tauriListen("tauri://drag-enter",()=>{ const t=selectedPeer(); if(t){document.body.dataset.target=displayName(t);document.body.classList.add("pagedrag");} });
+  tauriListen("tauri://drag-over",e=>{ const c=cardAt(e.payload.position); if(c!==dropHi){ if(dropHi) dropHi.classList.remove("drag"); dropHi=c; if(c) c.classList.add("drag"); }
+    if(c) document.body.classList.remove("pagedrag"); else if(selectedPeer()) document.body.classList.add("pagedrag"); });
+  tauriListen("tauri://drag-leave",clearHi);
+  tauriListen("tauri://drag-drop",e=>{ const c=cardAt(e.payload.position); clearHi();
+    let target=c?c.id.slice(5):(selectedPeer()||{}).id;
+    if(!target){ toast("Pehle koi device select karo (card par click), phir drop","r"); return; }
+    for(const p of e.payload.paths||[]) sendPath(target,p); });
+
+  // settings modal
+  const $=id=>document.getElementById(id);
+  $("settingsBtn").style.display="";
+  async function openSettings(){
+    try{ appInfo=await inv("get_settings"); }catch{ return; }
+    $("sNick").value=localStorage.getItem("share_nick")||appInfo.nick||"";
+    $("sDir").textContent=appInfo.download_dir; $("sAuto").checked=!!appInfo.autostart; $("sMin").checked=!!appInfo.start_minimized; $("sTray").checked=!!appInfo.close_to_tray;
+    $("sVer").textContent="AIPoint Share v"+appInfo.version+" · "+appInfo.os;
+    $("sLan").textContent="LAN: "+(appInfo.ips||[]).join(", ")+" · port "+appInfo.port;
+    $("settingsModal").style.display="";
+  }
+  $("settingsBtn").onclick=openSettings;
+  $("closeSettings").onclick=()=>$("settingsModal").style.display="none";
+  $("settingsModal").addEventListener("click",e=>{ if(e.target.id==="settingsModal") $("settingsModal").style.display="none"; });
+  $("sNick").onchange=()=>{ const v=$("sNick").value.trim(); localStorage.setItem("share_nick",v); inv("set_setting",{key:"nick",value:v}); send({type:"nick",nick:v}); renderMe(); };
+  $("sPick").onclick=async()=>{ const p=await inv("pick_download_dir"); if(p) $("sDir").textContent=p; };
+  $("sOpen").onclick=()=>inv("open_download_dir");
+  $("sAuto").onchange=async()=>{ try{ await inv("set_setting",{key:"autostart",value:$("sAuto").checked}); toast($("sAuto").checked?"✅ Will start automatically at login":"Autostart off","g"); }catch(err){ toast("Autostart failed: "+esc(String(err)),"r"); $("sAuto").checked=!$("sAuto").checked; } };
+  $("sMin").onchange=()=>inv("set_setting",{key:"start_minimized",value:$("sMin").checked});
+  $("sTray").onchange=()=>inv("set_setting",{key:"close_to_tray",value:$("sTray").checked});
+  // first run: open settings once so the user sees autostart + folder
+  if(!localStorage.getItem("share_app_seen")){ localStorage.setItem("share_app_seen","1"); setTimeout(openSettings,900); }
+}
+
+connect();
+</script>
+</body>
+</html>
