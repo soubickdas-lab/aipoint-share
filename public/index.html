@@ -380,7 +380,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826115339";
+const BUILD="20260826121426";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -683,10 +683,16 @@ document.getElementById("editNick").onclick=()=>{
 /* ---------- target: selected (sticky, remembered per device) > most recent ---------- */
 // selection is stored by device-id so it survives reloads and reconnects
 function selectedPeer(){ return pinnedDid?peers.find(p=>p.did===pinnedDid):null; }
+function selectedOfflineDid(){ return (pinnedDid&&!selectedPeer()&&savedPcs[pinnedDid])?pinnedDid:null; }
 function targetPeer(){
   const s=selectedPeer(); if(s) return {p:s,why:"selected"};
+  const off=selectedOfflineDid(); if(off) return {p:null,did:off,why:"offline"};
   const sorted=sortedPeers(); if(sorted.length&&recent[sorted[0].did]) return {p:sorted[0],why:"recent"};
   return null;
+}
+function selectedName(){
+  const p=selectedPeer(); if(p) return displayName(p);
+  const off=selectedOfflineDid(); return off?savedPcs[off].nick:null;
 }
 function sortedPeers(){
   return [...peers].sort((a,b)=>{
@@ -949,22 +955,33 @@ async function queueDrop(did,dt){
     if(en.isFile){ const f=dt.files[i]||await new Promise(r=>en.file(r)); if(f&&f.size) q.push({kind:"file",file:f}); }
     else if(en.isDirectory){ const list=[]; await walkDir(en,en.name,list); if(list.length) q.push({kind:"folder",root:en.name,list}); }
   }
-  renderSaved();
-  toast(`📮 Queued for <b>${esc((savedPcs[did]||{}).nick||"saved PC")}</b> — will auto-send when it comes online. Keep this tab open.`);
+  queueOrSend(did,q.splice(0,q.length));
+}
+function dispatchItem(peerId,it){
+  if(it.kind==="file") sendFile(peerId,it.file);
+  else if(it.kind==="path"&&TAURI) sendPath(peerId,it.path);
+  else if(it.kind==="folder") sendFolder(peerId,it.root,it.list);
+  else if(it.kind==="text") sendText(peerId,it.text);
+}
+// send straight away when the device is online, otherwise park it in its queue
+function queueOrSend(did,items){
+  if(!items||!items.length) return;
+  const pr=peers.find(x=>x.did===did);
+  if(pr){ for(const it of items) dispatchItem(pr.id,it); return "sent"; }
+  const q=sendQueue[did]=sendQueue[did]||[]; q.push(...items); renderSaved();
+  toast(`📮 Queued for <b>${esc((savedPcs[did]||{}).nick||"saved PC")}</b> — auto-sends when it comes online. Keep ${TAURI?"Dukto":"this tab"} open.`);
+  return "queued";
 }
 function flushQueues(){
   for(const did of Object.keys(sendQueue)){
     const q=sendQueue[did]; if(!q||!q.length) continue;
     const pr=peers.find(x=>x.did===did); if(!pr) continue;
     delete sendQueue[did];
-    for(const it of q){
-      if(it.kind==="file") sendFile(pr.id,it.file);
-      else if(it.kind==="path"&&TAURI) sendPath(pr.id,it.path);
-      else if(it.kind==="folder") sendFolder(pr.id,it.root,it.list);
-    }
+    for(const it of q) dispatchItem(pr.id,it);
     toast(`🚀 <b>${esc(displayName(pr))}</b> came online — sending ${q.length} queued item(s)`,"g");
   }
 }
+const offDraft={}, offOpen={};
 function renderSaved(){
   const dids=Object.keys(savedPcs);
   { const on=dids.filter(d=>peers.some(p=>p.did===d)).length;
@@ -978,18 +995,54 @@ function renderSaved(){
     const on=peers.find(x=>x.did===did);
     if(on){ savedPcs[did].nick=displayName(on); savedPcs[did].last=Date.now(); dirty=true; continue; } // online saved = full live card in savedGrid
     const info=savedPcs[did], q=(sendQueue[did]||[]);
-    const card=document.createElement("div"); card.className="peer off"; card.id="soff-"+did;
+    const isSel=pinnedDid===did;
+    const card=document.createElement("div"); card.className="peer off"+(isSel?" sel":""); card.id="soff-"+did;
     card.innerHTML=`
-      <div class="corner"><span class="netb" style="color:var(--red);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)">🔴 Offline</span></div>
-      <div class="top"><div class="pavatar">${info.os==="macOS"?"🖥️":"💻"}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)} <span class="tag rec" style="color:var(--red);border-color:rgba(248,113,113,.4)">OFFLINE</span></div><div class="pmeta">${info.last?("last seen "+fmtSince(info.last)+" ago"):"will auto-send when it returns"}</div></div></div>
+      <div class="corner"><button class="starb on" title="Remove from Saved PCs">⭐</button><span class="netb" style="color:var(--red);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)">🔴 Offline</span></div>
+      <div class="top"><div class="pavatar">${info.os==="macOS"?"🖥️":"💻"}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}</div><div class="pmeta">${info.last?("last seen "+fmtSince(info.last)+" ago"):"waiting for it to come online"}</div></div></div>
       <div class="pinfo"><span>💻 <b>${esc(info.os||"?")}</b></span><span>${q.length?("📮 <b>"+q.length+" queued</b>"):"queue empty"}</span></div>
-      <div class="phint">📎 Drop files/folders here — sends the moment it comes online</div>
-      <div class="trow" style="justify-content:space-between">${q.length?'<button class="btn sm cq" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕ Clear queue</button>':"<span></span>"}<button class="btn sm un">Remove</button></div>`;
-    if(card.querySelector(".cq")) card.querySelector(".cq").onclick=()=>{ delete sendQueue[did]; renderSaved(); };
-    card.querySelector(".un").onclick=()=>{ delete savedPcs[did]; delete sendQueue[did]; saveSaved(); renderPeers(); };
+      <div class="phint">📎 Drop files/folders here · <span class="pf">📄 files</span> · <span class="pd">📁 folder</span> · <span class="pt">📝 text</span></div>
+      <div class="compose${offOpen[did]?" open":""}"><textarea rows="1" placeholder=""></textarea><button class="btn primary sm">Queue ➤</button></div>
+      <div class="trow" style="justify-content:space-between">${q.length?'<button class="btn sm cq" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕ Clear queue</button>':"<span></span>"}<span style="color:var(--dim2);font-size:.68rem">sends automatically when online</span></div>
+      <input type="file" multiple hidden class="fi"><input type="file" webkitdirectory directory multiple hidden class="di">`;
+    const fi=card.querySelector(".fi"), di=card.querySelector(".di");
+    const ta=card.querySelector("textarea"), comp=card.querySelector(".compose");
+    ta.value=offDraft[did]||"";
+    ta.oninput=()=>{ offDraft[did]=ta.value; };
+    ta.addEventListener("click",e=>e.stopPropagation());
+    ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();card.querySelector(".compose .btn").click();} });
+    card.querySelector(".compose .btn").onclick=e=>{ e.stopPropagation();
+      const v=ta.value.trim(); if(!v) return;
+      ta.value=""; delete offDraft[did]; queueOrSend(did,[{kind:"text",text:v}]); };
+    card.querySelector(".pt").onclick=e=>{ e.stopPropagation(); offOpen[did]=!offOpen[did]; comp.classList.toggle("open",offOpen[did]); if(offOpen[did]) ta.focus(); };
+    card.querySelector(".pf").onclick=async e=>{ e.stopPropagation();
+      if(TAURI){ const paths=await inv("pick_files"); queueOrSend(did,(paths||[]).map(x=>({kind:"path",path:x}))); }
+      else fi.click(); };
+    card.querySelector(".pd").onclick=async e=>{ e.stopPropagation();
+      if(TAURI){ const x=await inv("pick_folder"); if(x) queueOrSend(did,[{kind:"path",path:x}]); }
+      else di.click(); };
+    fi.onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; queueOrSend(did,fs.filter(f=>f&&f.size).map(f=>({kind:"file",file:f}))); };
+    di.onchange=e=>{ const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
+      const root=(files[0].webkitRelativePath||files[0].name).split("/")[0];
+      queueOrSend(did,[{kind:"folder",root,list:files.map(f=>({file:f,path:f.webkitRelativePath||f.name}))}]); };
+    card.querySelector(".starb").onclick=e=>{ e.stopPropagation();
+      if(pinnedDid===did){ pinnedDid=""; localStorage.setItem("share_pin",""); }
+      delete savedPcs[did]; delete sendQueue[did]; saveSaved(); renderPeers();
+      toast(`<b>${esc(info.nick)}</b> removed from Saved PCs`); };
+    if(card.querySelector(".cq")) card.querySelector(".cq").onclick=e=>{ e.stopPropagation(); delete sendQueue[did]; renderSaved(); };
+    card.addEventListener("click",e=>{ if(e.target.closest("button,textarea,input,.pf,.pd,.pt")) return;
+      pinnedDid=(pinnedDid===did)?"":did; localStorage.setItem("share_pin",pinnedDid); renderPeers();
+      if(pinnedDid===did) toast(`✅ <b>${esc(info.nick)}</b> selected — drops and Ctrl+V will queue for it`,"g"); });
     card.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();card.classList.add("drag");});
     card.addEventListener("dragleave",()=>card.classList.remove("drag"));
-    card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");queueDrop(did,e.dataTransfer);});
+    card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");
+      const sid=e.dataTransfer.getData("droply/staged");
+      if(sid){ const it=staged.find(x=>String(x.id)===String(sid));
+        let batch=staged.filter(x=>x.sel); if(!batch.length||(it&&!it.sel)) batch=it?[it]:[];
+        if(batch.length){ queueOrSend(did,batch.map(b=>b.kind==="file"?{kind:"file",file:b.file}:{kind:"folder",root:b.root,list:b.list}));
+          staged=staged.filter(x=>!batch.includes(x)); renderTray(); }
+        return; }
+      queueDrop(did,e.dataTransfer);});
     sgrid.appendChild(card);
   }
   if(dirty) saveSaved();
@@ -1043,9 +1096,9 @@ function sendStagedTo(peer,dragId){
 let dragDepth=0;
 document.addEventListener("dragenter",e=>{
   if(!(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))) return;
-  const t=selectedPeer();
-  document.body.dataset.msg=t?("📂  Drop anywhere → "+displayName(t)+"   (or drop on any device card)")
-                             :"📦  Drop anywhere to stage — then drag chips onto a device (or drop straight on a card)";
+  const nm=selectedName();
+  document.body.dataset.msg=nm?("📂  Drop anywhere → "+nm+"   (or drop on any device card)")
+                              :"📦  Drop anywhere to stage — then drag chips onto a device (or drop straight on a card)";
   dragDepth++; document.body.classList.add("pagedrag");
 });
 document.addEventListener("dragleave",()=>{ if(--dragDepth<=0){dragDepth=0;document.body.classList.remove("pagedrag");} });
@@ -1056,7 +1109,8 @@ document.addEventListener("drop",e=>{
   if(!(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))) return; // ignore chip drags landing nowhere
   e.preventDefault();
   const t=selectedPeer();
-  if(t) handleDrop(t.id,e.dataTransfer); else stageDrop(e.dataTransfer);
+  if(t) handleDrop(t.id,e.dataTransfer);
+  else { const off=selectedOfflineDid(); if(off) queueDrop(off,e.dataTransfer); else stageDrop(e.dataTransfer); }
 });
 
 /* ---------- global paste → target device ---------- */
@@ -1064,11 +1118,12 @@ let pasteHandled=false;
 function pasteInto(txt,files){
   const t=targetPeer();
   if(!t){ toast("Select a device first (click its card), then press Ctrl+V","r"); return; }
-  if(files&&files.length){
-    files.forEach((f,i)=>sendFile(t.p.id,f.name?f:new File([f],"pasted-"+(i+1)+"."+((f.type||"").split("/")[1]||"bin"),{type:f.type})));
-    return;
-  }
-  if(txt&&txt.trim()) sendText(t.p.id,txt);
+  const items=[];
+  if(files&&files.length) files.forEach((f,i)=>items.push({kind:"file",file:f.name?f:new File([f],"pasted-"+(i+1)+"."+((f.type||"").split("/")[1]||"bin"),{type:f.type})}));
+  else if(txt&&txt.trim()) items.push({kind:"text",text:txt});
+  if(!items.length) return;
+  if(t.p) for(const it of items) dispatchItem(t.p.id,it);
+  else queueOrSend(t.did,items); // selected device is offline → queue
 }
 function typingInField(el){
   const tag=(el&&el.tagName||"").toLowerCase();
@@ -1780,11 +1835,11 @@ if(TAURI) try{
   const dropTarget=(pos)=>cardAt(pos)||(dropHi&&dropHi.isConnected?dropHi:null);
   tauriListen("tauri://drag-enter",e=>{ const c=cardAt(e&&e.payload&&e.payload.position);
     if(c){ dropHi=c; c.classList.add("drag"); return; }
-    const t=selectedPeer(); if(t){document.body.dataset.msg="📂  Drop anywhere → "+displayName(t);document.body.classList.add("pagedrag");} });
+    const nm=selectedName(); if(nm){document.body.dataset.msg="📂  Drop anywhere → "+nm;document.body.classList.add("pagedrag");} });
   tauriListen("tauri://drag-over",e=>{ const c=cardAt(e.payload.position);
     if(c!==dropHi){ if(dropHi) dropHi.classList.remove("drag"); dropHi=c; if(c) c.classList.add("drag"); }
     if(c) document.body.classList.remove("pagedrag");
-    else { const t=selectedPeer(); if(t){document.body.dataset.msg="📂  Drop anywhere → "+displayName(t);document.body.classList.add("pagedrag");} } });
+    else { const nm=selectedName(); if(nm){document.body.dataset.msg="📂  Drop anywhere → "+nm;document.body.classList.add("pagedrag");} } });
   tauriListen("tauri://drag-leave",clearHi);
   tauriListen("tauri://drag-drop",e=>{ const c=dropTarget(e.payload.position); clearHi();
     const paths=e.payload.paths||[];
@@ -1797,7 +1852,11 @@ if(TAURI) try{
       return;
     }
     const target=(c&&c.id.startsWith("peer-"))?c.id.slice(5):(selectedPeer()||{}).id;
-    if(!target){ toast("Drop it on a device card, or click a card to select it first","r"); return; }
+    if(!target){
+      const off=selectedOfflineDid();
+      if(off){ queueOrSend(off,paths.map(x=>({kind:"path",path:x}))); return; }
+      toast("Drop it on a device card, or click a card to select it first","r"); return;
+    }
     for(const p of paths) sendPath(target,p); });
 
   // settings modal
