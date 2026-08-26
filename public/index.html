@@ -383,7 +383,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826122044";
+const BUILD="20260826123757";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -584,7 +584,66 @@ function pickDc(e){
   for(const d of openDcs(e)) if(!best||d.bufferedAmount<best.bufferedAmount) best=d;
   return best;
 }
+// ---- same-network detection -------------------------------------------------
+// IPv4 peers on one LAN share a public IP (NAT). IPv6 peers each get their own
+// global address, but the router hands out one /64 — so compare that prefix.
+// macOS prefers IPv6, which is why plain string compare used to say "Remote".
+let myIp4=null;
+function detectPublicV4(){
+  return new Promise(res=>{
+    let done=false, pc=null;
+    const finish=v=>{ if(done) return; done=true; try{pc&&pc.close()}catch{} res(v); };
+    try{ pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.cloudflare.com:3478"},{urls:"stun:stun.l.google.com:19302"}]}); }
+    catch{ return finish(null); }
+    pc.onicecandidate=ev=>{
+      const c=ev.candidate;
+      if(!c) return finish(null);
+      const parts=(c.candidate||"").split(" ");
+      const typ=c.type||parts[7];
+      const addr=c.address||parts[4];
+      if(typ==="srflx"&&addr&&!addr.includes(":")) finish(addr);
+    };
+    try{ pc.createDataChannel("probe"); pc.createOffer().then(o=>pc.setLocalDescription(o)).catch(()=>finish(null)); }
+    catch{ finish(null); }
+    setTimeout(()=>finish(null),4000);
+  });
+}
+detectPublicV4().then(ip=>{ if(ip){ myIp4=ip; if(ws&&ws.readyState===1) sendHello(); renderPeers(); } });
+
+function v6Prefix64(ip){
+  if(!ip||!ip.includes(":")) return null;
+  const [head,tail]=ip.split("::");
+  const h=(head||"").split(":").filter(Boolean);
+  const t=(tail!==undefined?tail:"").split(":").filter(Boolean);
+  const groups=ip.includes("::")
+    ? [...h,...Array(Math.max(0,8-h.length-t.length)).fill("0"),...t]
+    : ip.split(":");
+  if(groups.length<4) return null;
+  return groups.slice(0,4).map(x=>x.padStart(4,"0").toLowerCase()).join(":");
+}
+function sameNetworkIp(a,b){
+  if(!a||!b) return false;
+  if(a===b) return true;                       // same NAT (IPv4) or same host
+  const pa=v6Prefix64(a), pb=v6Prefix64(b);
+  return !!(pa&&pb&&pa===pb);                  // same IPv6 /64 = same LAN
+}
+function isPrivateAddr(ip){
+  if(!ip) return false;
+  if(ip.endsWith(".local")) return true;        // mDNS-masked host candidate
+  if(ip.includes(":")) return /^(fe80|fc|fd)/i.test(ip);
+  return /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+}
+function peerIsLan(peerId){
+  const p=peers.find(x=>x.id===peerId);
+  if(!p) return false;
+  if(sameNetworkIp(p.ip,myMeta.ip)) return true;                       // both seen over the same family
+  if(p.ip4&&myIp4&&p.ip4===myIp4) return true;                          // same NAT, learned via STUN
+  if(p.ip4&&!p.ip4.includes(":")&&sameNetworkIp(p.ip4,myMeta.ip)) return true;
+  if(myIp4&&sameNetworkIp(p.ip,myIp4)) return true;
+  return false;
+}
 async function classify(peerId,e){
+  let local=false;
   try{
     const stats=await e.pc.getStats();
     const by={}; let pair=null;
@@ -592,13 +651,21 @@ async function classify(peerId,e){
     stats.forEach(r=>{ if(r.type==="transport"&&r.selectedCandidatePairId) pair=by[r.selectedCandidatePairId]; });
     if(!pair) stats.forEach(r=>{ if(r.type==="candidate-pair"&&r.state==="succeeded"&&(r.selected||!pair)) pair=r; });
     const lc=pair&&by[pair.localCandidateId], rc=pair&&by[pair.remoteCandidateId];
-    let local=!!(lc&&rc&&lc.candidateType==="host"&&rc.candidateType==="host");
-    if(!local){ const p=peers.find(x=>x.id===peerId); if(p&&p.ip&&myMeta.ip&&p.ip===myMeta.ip) local=true; }
-    e.status=local?"local":"direct";
-  }catch{ e.status="direct"; }
+    if(lc&&rc){
+      if(lc.candidateType==="host"&&rc.candidateType==="host") local=true;               // classic LAN pair
+      else if(isPrivateAddr(lc.address)&&isPrivateAddr(rc.address)) local=true;          // both sides on private addresses
+      else if(pair&&pair.currentRoundTripTime!=null&&pair.currentRoundTripTime<0.01&&peerIsLan(peerId)) local=true;
+    }
+    e.status=(local||peerIsLan(peerId))?"local":"direct";
+  }catch{ e.status=peerIsLan(peerId)?"local":"direct"; }
   updBadge(peerId);
 }
+// ICE can settle on a better pair after connecting — re-check for a while
+setInterval(()=>{
+  for(const [id,e] of rtc) if(e&&e.status&&e.status!=="connecting") classify(id,e);
+},12000);
 async function handleRtc(m){
+  if(m.kind==="want"){ if(myId<m.from&&!rtc.has(m.from)) ensureRtc(m.from,true); return; }
   const e=ensureRtc(m.from,false);
   const slot=e.slots[m.slot|0]; if(!slot) return;
   const pc=slot.pc;
@@ -624,7 +691,7 @@ function dropRtc(peerId){
 }
 function netLabel(peerId){
   const e=rtc.get(peerId), st=e?e.status:"failed";
-  if(st==="local") return {cls:"local", txt:"⚡ Local"};
+  if(st==="local"||peerIsLan(peerId)) return {cls:"local", txt:"⚡ Local"};
   if(st==="connecting") return {cls:"", txt:"…"};
   return {cls:"", txt:"🌐 Remote"};
 }
@@ -646,7 +713,7 @@ async function sendHello(){
       myMeta.ua={os:osName, br:"App", dev:"Desktop"};
     }
   }
-  send({type:"hello", ua:myMeta.ua, nick:localStorage.getItem("share_nick")||"", did:myDid, app, trusts:Object.keys(trusted).slice(0,200), common:commonPayload()});
+  send({type:"hello", ua:myMeta.ua, nick:localStorage.getItem("share_nick")||"", did:myDid, app, ip4:myIp4||"", trusts:Object.keys(trusted).slice(0,200), common:commonPayload()});
 }
 function handleJson(m){
   switch(m.type){
@@ -659,7 +726,11 @@ function handleJson(m){
     case "peers":{
       peers=(m.peers||[]).filter(p=>p.id!==myId&&!(p.did&&p.did===myDid));
       commonNotes=m.notes||[];
-      turnReady.then(()=>{ for(const p of peers) if(!rtc.has(p.id)&&myId<p.id) ensureRtc(p.id,true); });
+      turnReady.then(()=>{ for(const p of peers){
+        if(rtc.has(p.id)) continue;
+        if(myId<p.id) ensureRtc(p.id,true);
+        else send({type:"rtc",to:p.id,slot:0,kind:"want"}); // they initiate; nudge in case they missed us
+      }});
       const ids=new Set(peers.map(p=>p.id));
       for(const id of [...rtc.keys()]) if(!ids.has(id)) dropRtc(id);
       if(selId&&!ids.has(selId)) selId=null;
@@ -1434,7 +1505,7 @@ async function pump(t){
       if(t.state!=="sending") return;
       const e=rtc.get(t.peer);
       // candidate transports: DataChannels (LAN / P2P) + parallel cloud pipes; pick the least loaded
-      const isLocal=!!(e&&e.status==="local");
+      const isLocal=!!(e&&e.status==="local")||peerIsLan(t.peer);
       const pAll=t.pipes||[], pAlive=pAll.filter(p=>!p.dead), pReady=livePipes(t);
       // remote: WebRTC over WAN crawls (~100KB/s) — never queue into it while pipes exist
       if(!isLocal&&pAll.length&&!pReady.length&&pAlive.length){ await new Promise(r=>{t.wake=r; setTimeout(r,150);}); continue; }
@@ -1466,7 +1537,7 @@ async function pump(t){
         else ws.send(frame);
       }catch{ await yieldTask(); continue; }
       const dcOpen=kind==="dc";
-      const via=kind==="dc"?(e.status==="local"?"⚡ LAN direct":"🔗 P2P direct"):kind==="pipe"?(anyDc?"🔗 P2P + ☁ cloud pipes":"☁ cloud pipes ×"+livePipes(t).length):"☁ cloud relay";
+      const via=kind==="dc"?(isLocal?"⚡ LAN direct":"🔗 P2P direct"):kind==="pipe"?(anyDc?"🔗 P2P + ☁ cloud pipes":"☁ cloud pipes ×"+livePipes(t).length):"☁ cloud relay";
       t.viaTxt="via "+via;
       bo+=payload.byteLength; offset+=payload.byteLength; seq++; t.sent=offset;
       const now=performance.now();
@@ -1521,7 +1592,7 @@ async function onOffer(m){
   if(t.kind!=="bench") sfx("incoming");
   // local senders (same network) auto-start; remote senders need the receiver's OK
   const e=rtc.get(m.from), pp=peers.find(x=>x.id===m.from);
-  const isLocal=(e&&e.status==="local")||(pp&&pp.ip&&myMeta.ip&&pp.ip===myMeta.ip);
+  const isLocal=(e&&e.status==="local")||(pp&&sameNetworkIp(pp.ip,myMeta.ip));
   const wasRequested=expectedTids.delete(m.tid);
   if(t.kind!=="bench"&&!isLocal&&!isTrusted(pp)&&!wasRequested){
     t.state="ask";

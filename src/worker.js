@@ -100,7 +100,7 @@ export class ShareRoom {
     named = named.filter((s) => !s.m.did || byDid.get(s.m.did) === s);
     const peerList = named.map((s) => ({
       id: s.m.id, nick: s.m.nick, ua: s.m.ua, ip: s.m.ip,
-      city: s.m.city, country: s.m.country, joined: s.m.joined, did: s.m.did, app: s.m.app || null, trusts: s.m.trusts || [], common: s.m.common || [],
+      city: s.m.city, country: s.m.country, joined: s.m.joined, did: s.m.did, ip4: s.m.ip4 || "", app: s.m.app || null, trusts: s.m.trusts || [], common: s.m.common || [],
     }));
     this.pruneNotes();
     const msg = JSON.stringify({ type: "peers", peers: peerList, notes: this.notes });
@@ -140,6 +140,9 @@ export class ShareRoom {
         m.ua = msg.ua || null;
         m.nick = String(msg.nick || "").slice(0, 24);
         m.did = String(msg.did || "").slice(0, 16);
+        // public IPv4 each client learns from STUN — lets us spot LAN mates even
+        // when one side reaches us over IPv6 and the other over IPv4
+        m.ip4 = typeof msg.ip4 === "string" ? msg.ip4.slice(0, 45) : "";
         m.trusts = Array.isArray(msg.trusts) ? msg.trusts.slice(0, 200).map((x) => String(x).slice(0, 16)) : [];
         // files this device offers in the Common Share box (metadata only; bytes stay on the device)
         m.common = Array.isArray(msg.common) ? msg.common.slice(0, 50).map((x) => ({
