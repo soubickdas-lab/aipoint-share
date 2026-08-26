@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dukto</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0a0e17; --bg2:#0f1522; --card:#131a2a; --card2:#182136; --card3:#1d2740;
@@ -110,9 +112,9 @@ body.pagedrag .peer{border-color:rgba(52,211,153,.45)}
 .compose textarea:focus{border-color:var(--accent)}
 .compose .btn{padding:0 12px}
 .empty{color:var(--dim2);font-size:.85rem;padding:30px;text-align:center;border:1px dashed var(--border);border-radius:14px}
-.cols{display:grid;grid-template-columns:250px minmax(0,1fr) 320px;gap:16px;align-items:start}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
 .colL,.colR{position:sticky;top:14px}
-@media(max-width:1150px){.cols{grid-template-columns:1fr}.colL,.colR{position:static}.colC{order:1}.colR{order:2}.colL{order:3}}
+@media(max-width:1150px){.cols{grid-template-columns:1fr}.colR{position:static}}
 .crow{cursor:pointer}
 .crow.mine{cursor:default}
 .crow.sel{border-color:var(--accent);background:rgba(91,140,255,.08)}
@@ -208,6 +210,44 @@ h2.sec{font-size:.84rem;color:var(--dim)}
 footer{margin-top:50px;text-align:center;color:var(--dim2);font-size:.75rem}
 footer a{color:var(--dim)}
 @media(max-width:560px){.idcard{flex-direction:column;text-align:center}.idmeta{justify-content:center}.pinfo{grid-template-columns:1fr}}
+
+/* ===== modern pass ===== */
+:root{
+  --bg:#070b14; --bg2:#0d1220; --card:#111827cc; --card2:#151d30cc; --card3:#1c2740;
+  --border:#26314d; --text:#eef2f9; --dim:#93a0b8; --dim2:#5f6a85;
+  --accent:#6a95ff; --accent2:#9a6bff;
+}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+body::before{background:
+  radial-gradient(800px 400px at 15% -5%,rgba(106,149,255,.14),transparent),
+  radial-gradient(800px 400px at 90% 0%,rgba(154,107,255,.11),transparent),
+  radial-gradient(600px 600px at 50% 110%,rgba(52,211,153,.05),transparent)}
+.panel,.idcard,.peer,.tx{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.panel,.idcard{border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,.28)}
+.peer{border-radius:18px;background:var(--card)}
+.peer.sel{background:rgba(106,149,255,.09)}
+.logo{font-size:1.45rem;font-weight:800}
+.btn{border-radius:10px;font-weight:600}
+.btn.primary{box-shadow:0 3px 12px rgba(106,149,255,.3)}
+.btn.primary:hover{box-shadow:0 5px 18px rgba(106,149,255,.45);transform:translateY(-1px)}
+h2.sec{font-size:.8rem;font-weight:800;letter-spacing:.14em;color:var(--dim);margin:26px 0 14px}
+.ptitle{font-size:1rem}
+.idtag{border-radius:7px}
+.bar{height:6px;border-radius:99px}
+.bar i{box-shadow:0 0 10px rgba(106,149,255,.5)}
+.tx{border-radius:14px}
+.toast{backdrop-filter:blur(16px);border-radius:12px;font-weight:500}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--card3);border-radius:99px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--border)}
+::-webkit-scrollbar-track{background:transparent}
+.pill{backdrop-filter:blur(10px)}
+.grid{gap:15px}
+.phint{border-radius:12px}
+.crow,.srow{border-radius:12px}
+.mchip{backdrop-filter:blur(10px)}
+input,textarea{font-family:inherit}
+#savedGrid:not(:empty){margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -248,15 +288,6 @@ footer a{color:var(--dim)}
   </div>
 
   <div class="cols">
-  <aside class="colL">
-    <div id="savedBox" class="panel">
-      <div class="phead chead" id="savedHead"><span class="ptitle"><span class="chev" id="savedChev">▾</span> ⭐ Saved PCs <span class="cnt" id="savedCount">0</span></span></div>
-      <div id="savedBody">
-      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Always here, online or offline · drop on an offline PC to queue — auto-sends when it returns</div>
-      <div id="savedList"></div>
-      </div>
-    </div>
-  </aside>
   <main class="colC">
   <div class="idcard">
     <div class="avatar" id="myAvatar">👤</div>
@@ -270,7 +301,14 @@ footer a{color:var(--dim)}
     <div class="trayhead"><span>📦 Staged files — <b id="trayCount">0</b> <span class="hint">click to select · drag a chip onto a device to send (selected ones go together)</span></span><button class="btn sm" id="trayClear">Clear all</button></div>
     <div class="chips" id="trayChips"></div>
   </div>
-  <h2 class="sec chead" id="devHead"><span><span class="chev" id="devChev">▾</span> 🟢 Online Devices — <span id="peerCount">0</span></span>&nbsp;<span class="hint">drag files/folders onto a device · click a card to select it</span></h2>
+  <div id="savedBox" class="panel">
+    <div class="phead chead" id="savedHead"><span class="ptitle"><span class="chev" id="savedChev">▾</span> ⭐ Saved PCs <span class="cnt" id="savedCount">0</span></span><span class="hint">always here · drop on an offline PC to queue — auto-sends when it returns</span></div>
+    <div id="savedBody">
+      <div class="grid" id="savedGrid"></div>
+      <div id="savedList"></div>
+    </div>
+  </div>
+  <h2 class="sec chead" id="devHead"><span><span class="chev" id="devChev">▾</span> 🟢 Other Online Devices — <span id="peerCount">0</span></span>&nbsp;<span class="hint">drag files/folders onto a device · click a card to select it</span></h2>
   <div id="devMini" class="minirow" style="display:none"></div>
   <div id="devBody">
     <div class="grid" id="peerGrid"></div>
@@ -284,7 +322,7 @@ footer a{color:var(--dim)}
     <div id="commonBox" class="panel">
       <div class="phead chead" id="commonHead"><span class="ptitle"><span class="chev" id="commonChev">▾</span> 🗃 Common Share <span class="cnt" id="commonCount">0</span></span><button class="btn sm" id="commonLockBtn" style="display:none">🔒 Lock</button></div>
       <div id="commonBody">
-      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Everyone can drop &amp; see the list · <b>unlock to download / copy</b> · files vanish with their owner · notes auto-clear in 24h</div>
+      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Shared with every device · P2P — files vanish with their owner · notes auto-clear in 24h</div>
       <div id="commonLocked" class="lockrow">
         <input id="commonPass" type="password" placeholder="🔒 Password to download" maxlength="16" autocomplete="off" style="flex:1;min-width:120px">
         <button class="btn primary sm" id="commonUnlock">Unlock</button>
@@ -292,7 +330,7 @@ footer a{color:var(--dim)}
       <div class="cdrop" id="commonDrop" style="margin-top:10px">📥 <b>Drop files here</b> to share with everyone<br><span class="pickc" style="color:var(--accent);cursor:pointer;font-size:.76rem">or choose files</span><input type="file" id="commonPick" multiple hidden></div>
       <div id="commonList" class="clist"></div>
       <div id="commonActs" style="display:none;margin-top:9px"><button class="btn primary sm" id="dlSel" style="width:100%">⬇ Download selected (<span id="dlSelN">0</span>)</button></div>
-      <div class="ncompose"><textarea id="noteBox" rows="2" maxlength="32768" placeholder="📝 Share a text note with everyone… stays in cloud, auto-clears in 24h"></textarea><button class="btn primary sm" id="noteSend">Share text ➤</button></div>
+      <div class="ncompose" id="ncompose"><textarea id="noteBox" rows="2" maxlength="32768" placeholder=""></textarea><button class="btn primary sm" id="noteSend">Share text ➤</button></div>
       </div>
     </div>
   </aside>
@@ -312,7 +350,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826083834";
+const BUILD="20260826090533";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
@@ -625,9 +663,10 @@ function renderTargetBar(){ const t=targetPeer(); document.body.classList.toggle
 
 /* ---------- render: peers ---------- */
 function renderPeers(){
-  document.getElementById("peerCount").textContent=peers.length;
-  document.getElementById("noPeers").style.display=peers.length?"none":"";
-  const grid=document.getElementById("peerGrid"); const have=new Set();
+  { const others=peers.filter(p=>!savedPcs[p.did]).length;
+    document.getElementById("peerCount").textContent=others;
+    document.getElementById("noPeers").style.display=others?"none":""; }
+  const grid=document.getElementById("peerGrid"), sgrid=document.getElementById("savedGrid"); const have=new Set();
   const order=sortedPeers();
   for(const p of order){
     have.add(p.id);
@@ -664,7 +703,7 @@ function renderPeers(){
         const sid=e.dataTransfer.getData("droply/staged");
         if(sid) sendStagedTo(p.id,sid); else handleDrop(p.id,e.dataTransfer);});
     }
-    grid.appendChild(card); // re-append in sorted order
+    (savedPcs[p.did]?sgrid:grid).appendChild(card); // saved PCs get their own section
     const isSel=!!(pinnedDid&&p.did===pinnedDid), isRec=!isSel&&!selectedPeer()&&recent[p.did]&&order[0]===p;
     card.classList.toggle("sel",isSel);
     card.querySelector(".pavatar").textContent=devIcon(p.ua);
@@ -679,7 +718,7 @@ function renderPeers(){
     { const sb=card.querySelector(".starb"), on=!!savedPcs[p.did]; sb.textContent=on?"⭐":"☆"; sb.classList.toggle("on",on); }
     updBadge(p.id);
   }
-  for(const el of [...grid.children]) if(!have.has(el.id.slice(5))) el.remove();
+  for(const el of [...grid.children,...sgrid.children]) if(!have.has(el.id.slice(5))) el.remove();
   renderTargetBar();
   renderSaved(); renderCommon(); flushQueues();
   if(collapsed.dev) renderMini();
@@ -730,7 +769,7 @@ function hideNote(nid){ hiddenNotes[nid]=Date.now(); localStorage.setItem("share
 const COMMON_PASS="1234";
 let myCommon=[], commonSeq=0;
 const expectedTids=new Set(); // downloads we requested → auto-accept their offers
-function commonUnlocked(){ return localStorage.getItem("share_common_ok")==="1"; }
+function commonUnlocked(){ return true; } // password removed on user request
 function commonPayload(){ return myCommon.map(x=>({cid:x.cid,name:x.file.name,size:x.file.size})); }
 function addCommonFiles(files){
   let n=0;
@@ -746,7 +785,15 @@ function lockNudge(){
 function renderCommon(){
   const locked=!commonUnlocked();
   document.getElementById("commonLocked").style.display=locked?"":"none";
-  document.getElementById("commonLockBtn").style.display=locked?"none":"";
+  document.getElementById("commonLockBtn").style.display="none";
+  document.getElementById("commonDrop").style.display=locked?"none":"";
+  document.getElementById("ncompose").style.display=locked?"none":"flex";
+  document.getElementById("commonList").style.display=locked?"none":"";
+  if(locked){
+    document.getElementById("commonActs").style.display="none";
+    document.getElementById("commonCount").textContent="🔒";
+    return;
+  }
   const box=document.getElementById("commonList"); box.innerHTML="";
   for(const k of Object.keys(commonIndex)) delete commonIndex[k];
   let shownNotes=0;
@@ -868,8 +915,8 @@ function renderSaved(){
   const list=document.getElementById("savedList"); list.innerHTML="";
   if(!dids.length){ list.innerHTML='<div style="color:var(--dim2);font-size:.75rem;text-align:center;padding:8px 4px;line-height:1.5">No saved PCs yet.<br>Click <b>☆</b> on a device card — it will stay here forever.</div>'; return; }
   for(const did of dids){
-    const pr=peers.find(x=>x.did===did);
-    if(pr) savedPcs[did].nick=displayName(pr);
+    const pr=null; // online saved PCs render as full cards in savedGrid
+    { const on=peers.find(x=>x.did===did); if(on){ savedPcs[did].nick=displayName(on); continue; } }
     const info=savedPcs[did], q=(sendQueue[did]||[]);
     const row=document.createElement("div");
     row.className="srow"+(pr?"":" off");
@@ -1668,7 +1715,8 @@ async function checkBuild(){
   try{
     const r=await fetch((SIGNAL_HOST===location.host?"":"https://"+SIGNAL_HOST)+"/build.txt?_="+Date.now(),{cache:"no-store"});
     const v=(await r.text()).trim();
-    if(!v||v===BUILD||TAURI) return;
+    const bundled=location.protocol!=="http:"&&location.protocol!=="https:"; // old bundled builds can't benefit from reload
+    if(!v||v===BUILD||bundled) return;
     const busy=[...transfers.values()].some(t=>t.state==="sending"||t.state==="receiving"||t.state==="offer");
     if(busy) return;
     toast("Updating to the latest version…"); setTimeout(()=>location.reload(),800);

@@ -15,5 +15,10 @@
     "opener:default",
     "updater:default",
     "process:default"
-  ]
+  ],
+  "remote": {
+    "urls": [
+      "https://share.aipoint.online"
+    ]
+  }
 }

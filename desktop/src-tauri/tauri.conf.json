@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Dukto",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "identifier": "online.aipoint.share",
   "build": {
     "frontendDist": "../../public"
@@ -18,7 +18,8 @@
         "minHeight": 520,
         "visible": false,
         "dragDropEnabled": true,
-        "center": true
+        "center": true,
+        "url": "https://share.aipoint.online"
       }
     ],
     "security": {
