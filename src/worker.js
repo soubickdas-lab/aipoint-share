@@ -163,10 +163,20 @@ export class ShareRoom {
         const text = String(msg.text || "").slice(0, 32768);
         if (!text.trim()) return;
         this.pruneNotes();
-        this.notes.push({ nid: genId(), text, by: m.nick || "?", ts: Date.now() });
+        this.notes.push({ nid: genId(), text, by: m.nick || "?", did: m.did || "", ts: Date.now() });
         if (this.notes.length > 50) this.notes = this.notes.slice(-50);
         await this.ctx.storage.put("notes", this.notes);
         this.broadcast();
+        return;
+      }
+      case "delnote": {
+        const nid = String(msg.nid || "");
+        const n = (this.notes || []).find((x) => x.nid === nid);
+        if (n && n.did && n.did === m.did) {
+          this.notes = this.notes.filter((x) => x.nid !== nid);
+          await this.ctx.storage.put("notes", this.notes);
+          this.broadcast();
+        }
         return;
       }
       case "nick": {
@@ -193,6 +203,10 @@ export class ShareRoom {
     if (this.ctx.getWebSockets().length) {
       this.broadcast(); // sockets() inside prunes dead connections → leavers vanish within ~30s
       await this.ctx.storage.setAlarm(Date.now() + 30000);
+    } else {
+      // empty room: keep the 24h note cleanup running so storage never rots
+      this.pruneNotes();
+      if ((this.notes || []).length) await this.ctx.storage.setAlarm(Date.now() + 3600 * 1000);
     }
   }
 
@@ -257,6 +271,11 @@ async function turnCredentials(env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // renamed: share.aipoint.online → dukto.aipoint.online (old app loaders need CORS on the redirect)
+    if (url.hostname === "share.aipoint.online" && request.headers.get("Upgrade") !== "websocket") {
+      url.hostname = "dukto.aipoint.online";
+      return new Response(null, { status: 301, headers: { Location: url.toString(), "Access-Control-Allow-Origin": "*" } });
+    }
     if (url.pathname === "/ws") {
       const id = env.ROOM.idFromName("main");
       return env.ROOM.get(id).fetch(request);

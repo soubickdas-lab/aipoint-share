@@ -14,5 +14,8 @@
     { "tag": "v1", "new_sqlite_classes": ["ShareRoom"] },
     { "tag": "v2", "new_sqlite_classes": ["RelayPipe"] }
   ],
-  "routes": [{ "pattern": "share.aipoint.online", "custom_domain": true }]
+  "routes": [
+    { "pattern": "dukto.aipoint.online", "custom_domain": true },
+    { "pattern": "share.aipoint.online", "custom_domain": true }
+  ]
 }

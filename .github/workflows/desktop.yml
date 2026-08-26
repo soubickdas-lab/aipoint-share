@@ -54,7 +54,7 @@ jobs:
             **Windows:** download the `.exe` installer. SmartScreen may warn (unsigned) → *More info → Run anyway*.
             **macOS:** download the `.dmg`, drag to Applications. First open: right-click → Open (unsigned build), or run `xattr -cr "/Applications/Dukto.app"`.
 
-            Same mesh as https://share.aipoint.online — web users and app users see each other.
+            Same mesh as https://dukto.aipoint.online — web users and app users see each other.
             App ↔ app on the same network uses a direct multi-stream LAN TCP path (folders as-is, no zip).
           releaseDraft: false
           prerelease: false

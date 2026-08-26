@@ -1,6 +1,6 @@
 # AIPoint Share
 
-Open device mesh + file/text sharing. Live at **https://share.aipoint.online**.
+Open device mesh + file/text sharing. Live at **https://dukto.aipoint.online**.
 
 - `src/worker.js` — Cloudflare Worker + Durable Object (signaling + relay fallback). Files are never stored.
 - `public/` — the single-page UI (also bundled into the desktop app).

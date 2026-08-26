@@ -213,43 +213,70 @@ footer{margin-top:50px;text-align:center;color:var(--dim2);font-size:.75rem}
 footer a{color:var(--dim)}
 @media(max-width:560px){.idcard{flex-direction:column;text-align:center}.idmeta{justify-content:center}.pinfo{grid-template-columns:1fr}}
 
-/* ===== modern pass ===== */
+/* ===== Dukto design system v2 — dark default, light via [data-theme=light] ===== */
 :root{
-  --bg:#070b14; --bg2:#0d1220; --card:#111827cc; --card2:#151d30cc; --card3:#1c2740;
-  --border:#26314d; --text:#eef2f9; --dim:#93a0b8; --dim2:#5f6a85;
-  --accent:#6a95ff; --accent2:#9a6bff;
+  --bg:#070b14; --bg2:#0d1322; --card:#101827d9; --card2:#141d31e6; --card3:#1d2942;
+  --border:#26314e; --text:#eef2f9; --dim:#94a1ba; --dim2:#5f6b87;
+  --accent:#6a95ff; --accent2:#9a6bff; --green:#34d399; --red:#f87171; --amber:#fbbf24;
+  --shadow:0 8px 28px rgba(0,0,0,.32); --shadow-lg:0 16px 48px rgba(0,0,0,.45);
+  --glow-g:rgba(52,211,153,.75); --glow-r:rgba(248,113,113,.6);
 }
-body{font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+[data-theme="light"]{
+  --bg:#dde3ee; --bg2:#d1d9e8; --card:#eff2f8f0; --card2:#f4f6faf5; --card3:#dfe6f3;
+  --border:#c3cde0; --text:#222d4a; --dim:#4e5a77; --dim2:#8791ab;
+  --accent:#3d63d6; --accent2:#7157cf; --green:#0e8f65; --red:#c94a4f; --amber:#a37c10;
+  --shadow:0 8px 22px rgba(30,40,66,.10); --shadow-lg:0 16px 40px rgba(30,40,66,.15);
+  --glow-g:rgba(14,143,101,.4); --glow-r:rgba(201,74,79,.35);
+}
+[data-theme="light"] body::before{opacity:.45}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:.01em;transition:background .25s,color .25s}
 body::before{background:
-  radial-gradient(800px 400px at 15% -5%,rgba(106,149,255,.14),transparent),
-  radial-gradient(800px 400px at 90% 0%,rgba(154,107,255,.11),transparent),
-  radial-gradient(600px 600px at 50% 110%,rgba(52,211,153,.05),transparent)}
-.panel,.idcard,.peer,.tx{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.panel,.idcard{border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,.28)}
-.peer{border-radius:18px;background:var(--card)}
-.peer.sel{background:rgba(106,149,255,.09)}
-.logo{font-size:1.45rem;font-weight:800}
+  radial-gradient(800px 400px at 15% -5%,color-mix(in srgb,var(--accent) 13%,transparent),transparent),
+  radial-gradient(800px 400px at 90% 0%,color-mix(in srgb,var(--accent2) 10%,transparent),transparent)}
+.wrap>header{position:sticky;top:0;z-index:40;margin:0 -18px 18px;padding:12px 18px;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border)}
+.logo{font-size:1.4rem;font-weight:800;letter-spacing:-.03em}
+.panel,.idcard,.peer,.tx,.mbox{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.panel,.idcard{border-radius:18px;box-shadow:var(--shadow)}
+.mbox{box-shadow:var(--shadow-lg)}
+.peer{border-radius:18px;background:var(--card);box-shadow:var(--shadow)}
+.peer .top{padding-right:118px} /* keep name clear of the corner badges */
+.peer.sel{background:color-mix(in srgb,var(--accent) 9%,var(--card))}
+.peer.off{opacity:.85;border-style:dashed}
+.peer.off:hover{transform:none}
+.peer{transition:.18s}
+.peer:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.corner{gap:7px}
 .btn{border-radius:10px;font-weight:600}
-.btn.primary{box-shadow:0 3px 12px rgba(106,149,255,.3)}
-.btn.primary:hover{box-shadow:0 5px 18px rgba(106,149,255,.45);transform:translateY(-1px)}
+.btn.primary{box-shadow:0 3px 12px color-mix(in srgb,var(--accent) 32%,transparent)}
+.btn.primary:hover{box-shadow:0 5px 18px color-mix(in srgb,var(--accent) 45%,transparent);transform:translateY(-1px)}
 h2.sec{font-size:.8rem;font-weight:800;letter-spacing:.14em;color:var(--dim);margin:26px 0 14px}
 .ptitle{font-size:1rem}
-.idtag{border-radius:7px}
 .bar{height:6px;border-radius:99px}
-.bar i{box-shadow:0 0 10px rgba(106,149,255,.5)}
+.bar i{box-shadow:0 0 10px color-mix(in srgb,var(--accent) 50%,transparent)}
 .tx{border-radius:14px}
-.toast{backdrop-filter:blur(16px);border-radius:12px;font-weight:500}
+.toast{backdrop-filter:blur(16px);border-radius:12px;font-weight:500;box-shadow:var(--shadow-lg)}
+.sdot.g{box-shadow:0 0 7px var(--glow-g)}
+.sdot.r{box-shadow:0 0 7px var(--glow-r)}
+.tdot.g{box-shadow:0 0 6px var(--glow-g)}
+.tdot.r{box-shadow:0 0 6px var(--glow-r)}
 ::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-thumb{background:var(--card3);border-radius:99px;border:2px solid var(--bg)}
 ::-webkit-scrollbar-thumb:hover{background:var(--border)}
 ::-webkit-scrollbar-track{background:transparent}
-.pill{backdrop-filter:blur(10px)}
+.pill,.mchip{backdrop-filter:blur(10px)}
 .grid{gap:15px}
-.phint{border-radius:12px}
+.phint,.cdrop{border-radius:12px}
 .crow,.srow{border-radius:12px}
-.mchip{backdrop-filter:blur(10px)}
 input,textarea{font-family:inherit}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
 #savedGrid:not(:empty){margin-bottom:8px}
+[data-theme="light"] .youbadge{background:rgba(13,159,110,.12)}
+[data-theme="light"] .idtag{background:rgba(63,109,240,.1)}
+[data-theme="light"] .toast{background:var(--card2)}
+[data-theme="light"] body::before{opacity:.7}
+@media(max-width:700px){.wrap>header{margin:0 -12px 14px;padding:10px 12px}}
 </style>
 </head>
 <body>
@@ -258,6 +285,7 @@ input,textarea{font-family:inherit}
     <div class="logo">⚡ Duk<span>to</span></div>
     <div style="display:flex;gap:8px;align-items:center">
       <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
+      <button class="btn sm" id="themeBtn" title="Light / dark theme">🌓</button>
       <button class="btn sm" id="refreshBtn" title="Reconnect &amp; refresh device list">🔄 Refresh</button>
       <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
       <button class="btn sm" id="updBtn" style="display:none;border-color:rgba(52,211,153,.5);color:var(--green)">⬆ Update available</button>
@@ -352,12 +380,12 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826094721";
+const BUILD="20260826110304";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
 let appInfo=null; // {version, port, ips, download_dir, ...}
-const SIGNAL_HOST=(location.protocol==="https:"||location.protocol==="http:")&&!/localhost|127\.0\.0\.1|tauri/.test(location.hostname)?location.host:"share.aipoint.online";
+const SIGNAL_HOST=(location.protocol==="https:"||location.protocol==="http:")&&!/localhost|127\.0\.0\.1|tauri/.test(location.hostname)?location.host:"dukto.aipoint.online";
 if(TAURI) document.documentElement.classList.add("tauri");
 
 let myDid=localStorage.getItem("share_did");
@@ -804,10 +832,13 @@ function renderCommon(){
   for(const n of [...commonNotes].reverse()){
     if(hiddenNotes[n.nid]) continue; shownNotes++;
     const r=document.createElement("div"); r.className="crow nrow";
-    r.innerHTML=`<span class="cico">📝</span><div class="cinfo"><div class="ntxt">${esc(n.text)}</div><div class="cmeta">by <b>${esc(n.by)}</b> · ${fmtSince(n.ts)} ago</div></div><button class="btn sm cp" title="Copy">📋</button><button class="btn sm hx" title="Hide for me" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕</button>`;
+    r.innerHTML=`<span class="cico">📝</span><div class="cinfo"><div class="ntxt">${esc(n.text)}</div><div class="cmeta">by <b>${n.did===myDid?"you":esc(n.by)}</b> · ${fmtSince(n.ts)} ago</div></div><button class="btn sm cp" title="Copy">📋</button>${n.did===myDid?'<button class="btn sm hx" title="Delete for everyone" style="color:var(--red);border-color:rgba(248,113,113,.4)">🗑</button>':'<button class="btn sm hx" title="Hide for me" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕</button>'}`;
     r.querySelector(".ntxt").onclick=()=>r.classList.toggle("open");
     r.querySelector(".cp").onclick=async()=>{ if(!commonUnlocked()){lockNudge();return;} const ok=await tryCopy(n.text); if(ok) toast("Copied ✓","g"); };
-    r.querySelector(".hx").onclick=()=>hideNote(n.nid);
+    r.querySelector(".hx").onclick=()=>{
+      if(n.did===myDid){ send({type:"delnote",nid:n.nid}); commonNotes=commonNotes.filter(x=>x.nid!==n.nid); renderCommon(); toast("🗑 Note deleted for everyone","g"); }
+      else hideNote(n.nid);
+    };
     box.appendChild(r);
   }
   { const keep={}; for(const n of commonNotes) if(hiddenNotes[n.nid]) keep[n.nid]=hiddenNotes[n.nid];
@@ -913,7 +944,11 @@ function flushQueues(){
     const q=sendQueue[did]; if(!q||!q.length) continue;
     const pr=peers.find(x=>x.did===did); if(!pr) continue;
     delete sendQueue[did];
-    for(const it of q){ if(it.kind==="file") sendFile(pr.id,it.file); else sendFolder(pr.id,it.root,it.list); }
+    for(const it of q){
+      if(it.kind==="file") sendFile(pr.id,it.file);
+      else if(it.kind==="path"&&TAURI) sendPath(pr.id,it.path);
+      else if(it.kind==="folder") sendFolder(pr.id,it.root,it.list);
+    }
     toast(`🚀 <b>${esc(displayName(pr))}</b> came online — sending ${q.length} queued item(s)`,"g");
   }
 }
@@ -925,14 +960,15 @@ function renderSaved(){
   const sgrid=document.getElementById("savedGrid");
   for(const el of [...sgrid.querySelectorAll('[id^="soff-"]')]) el.remove();
   if(!dids.length){ list.innerHTML='<div style="color:var(--dim2);font-size:.75rem;text-align:center;padding:8px 4px;line-height:1.5">No saved PCs yet — click <b>☆</b> on a device card and it will stay here forever.</div>'; return; }
+  let dirty=false;
   for(const did of dids){
     const on=peers.find(x=>x.did===did);
-    if(on){ savedPcs[did].nick=displayName(on); continue; } // online saved = full live card already in savedGrid
+    if(on){ savedPcs[did].nick=displayName(on); savedPcs[did].last=Date.now(); dirty=true; continue; } // online saved = full live card in savedGrid
     const info=savedPcs[did], q=(sendQueue[did]||[]);
     const card=document.createElement("div"); card.className="peer off"; card.id="soff-"+did;
     card.innerHTML=`
       <div class="corner"><span class="netb" style="color:var(--red);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)">🔴 Offline</span></div>
-      <div class="top"><div class="pavatar">${info.os==="macOS"?"🖥️":"💻"}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)}</div><div class="pmeta">will auto-send when it returns</div></div></div>
+      <div class="top"><div class="pavatar">${info.os==="macOS"?"🖥️":"💻"}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)} <span class="tag rec" style="color:var(--red);border-color:rgba(248,113,113,.4)">OFFLINE</span></div><div class="pmeta">${info.last?("last seen "+fmtSince(info.last)+" ago"):"will auto-send when it returns"}</div></div></div>
       <div class="pinfo"><span>💻 <b>${esc(info.os||"?")}</b></span><span>${q.length?("📮 <b>"+q.length+" queued</b>"):"queue empty"}</span></div>
       <div class="phint">📎 Drop files/folders here — sends the moment it comes online</div>
       <div class="trow" style="justify-content:space-between">${q.length?'<button class="btn sm cq" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕ Clear queue</button>':"<span></span>"}<button class="btn sm un">Remove</button></div>`;
@@ -943,6 +979,7 @@ function renderSaved(){
     card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");queueDrop(did,e.dataTransfer);});
     sgrid.appendChild(card);
   }
+  if(dirty) saveSaved();
 }
 
 /* ---------- staging tray: drop with nothing selected → park files here, then drag chips onto a device ---------- */
@@ -1657,13 +1694,27 @@ if(TAURI){
   // native drag & drop (HTML5 drop events don't fire in the webview)
   let dropHi=null;
   const clearHi=()=>{ document.body.classList.remove("pagedrag"); if(dropHi){dropHi.classList.remove("drag");dropHi=null;} };
-  const cardAt=(pos)=>{ const s=window.devicePixelRatio||1; const el=document.elementFromPoint(pos.x/s,pos.y/s); return el&&el.closest?el.closest(".peer"):null; };
+  const cardAt=(pos)=>{ // drag position → device card; tolerate scaled/unscaled coords
+    const s=window.devicePixelRatio||1;
+    for(const [x,y] of [[pos.x/s,pos.y/s],[pos.x,pos.y]]){
+      const el=document.elementFromPoint(x,y);
+      const c=el&&el.closest?el.closest(".peer"):null;
+      if(c) return c;
+    }
+    return null; };
   tauriListen("tauri://drag-enter",()=>{ const t=selectedPeer(); if(t){document.body.dataset.target=displayName(t);document.body.classList.add("pagedrag");} });
   tauriListen("tauri://drag-over",e=>{ const c=cardAt(e.payload.position); if(c!==dropHi){ if(dropHi) dropHi.classList.remove("drag"); dropHi=c; if(c) c.classList.add("drag"); }
     if(c) document.body.classList.remove("pagedrag"); else if(selectedPeer()) document.body.classList.add("pagedrag"); });
   tauriListen("tauri://drag-leave",clearHi);
   tauriListen("tauri://drag-drop",e=>{ const c=cardAt(e.payload.position); clearHi();
-    let target=c?c.id.slice(5):(selectedPeer()||{}).id;
+    if(c&&c.id.startsWith("soff-")){ // offline saved PC → queue the paths, auto-send on arrival
+      const did=c.id.slice(5); const q=sendQueue[did]=sendQueue[did]||[];
+      for(const pth of e.payload.paths||[]) q.push({kind:"path",path:pth});
+      renderSaved();
+      toast(`📮 Queued for <b>${esc((savedPcs[did]||{}).nick||"saved PC")}</b> — auto-sends when it comes online. Keep Dukto running.`);
+      return;
+    }
+    let target=(c&&c.id.startsWith("peer-"))?c.id.slice(5):(selectedPeer()||{}).id;
     if(!target){ toast("Select a device first (click its card), then drop","r"); return; }
     for(const p of e.payload.paths||[]) sendPath(target,p); });
 
@@ -1743,6 +1794,14 @@ async function checkBuild(){
 }
 setInterval(checkBuild,30000); setTimeout(checkBuild,5000);
 
+(function(){
+  const root=document.documentElement, btn=document.getElementById("themeBtn");
+  const apply=t=>{ if(t==="light") root.dataset.theme="light"; else delete root.dataset.theme; btn.textContent=t==="light"?"☀️":"🌙"; };
+  let t=localStorage.getItem("share_theme");
+  if(!t) t=(window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches)?"light":"dark";
+  apply(t);
+  btn.onclick=()=>{ t=(root.dataset.theme==="light")?"dark":"light"; localStorage.setItem("share_theme",t); apply(t); };
+})();
 renderCommon(); renderSaved(); applyCollapse();
 connect();
 </script>

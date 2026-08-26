@@ -3,7 +3,7 @@
 <style>html,body{background:#070b14;color:#93a0b8;font-family:system-ui,sans-serif;height:100%;margin:0;display:flex;align-items:center;justify-content:center;font-size:15px}</style>
 </head><body><div id="m">⚡ Loading Dukto…</div>
 <script>
-// Bundled loader: fetches the live UI from share.aipoint.online and runs it in
+// Bundled loader: fetches the live UI from dukto.aipoint.online and runs it in
 // this (bundled) origin, so window.__TAURI__ keeps working and the UI is always
 // the latest deployed version — no app update needed for UI changes.
 window.__DUKTO_LIVE = 1;
@@ -11,10 +11,10 @@ window.__DUKTO_LIVE = 1;
   const m = document.getElementById("m");
   for (let i = 0; i < 9999; i++) {
     try {
-      const r = await fetch("https://share.aipoint.online/index.html?_=" + Date.now(), { cache: "no-store" });
+      const r = await fetch("https://dukto.aipoint.online/index.html?_=" + Date.now(), { cache: "no-store" });
       if (r.ok) {
         let h = await r.text();
-        h = h.replace(/<head>/i, '<head><base href="https://share.aipoint.online/">');
+        h = h.replace(/<head>/i, '<head><base href="https://dukto.aipoint.online/">');
         document.open(); document.write(h); document.close();
         return;
       }
