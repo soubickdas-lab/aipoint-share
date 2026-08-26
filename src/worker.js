@@ -14,7 +14,7 @@ function genId() {
 // Message types a client may ask us to route to another peer verbatim.
 // "rtc" carries WebRTC signaling (sdp offers/answers, ICE candidates) so peers
 // can negotiate a direct LAN/P2P DataChannel; file bytes then bypass us.
-const ROUTED = new Set(["offer", "accept", "decline", "ack", "received", "cancel", "rtc", "text"]);
+const ROUTED = new Set(["offer", "accept", "decline", "ack", "received", "cancel", "rtc", "text", "pipes", "creq"]);
 
 export class ShareRoom {
   constructor(ctx, env) {
@@ -73,9 +73,20 @@ export class ShareRoom {
 
   broadcast() {
     const all = this.sockets();
-    const peerList = all.map((s) => ({
+    // devices that haven't set a name yet are invisible to everyone
+    let named = all.filter((s) => s.m.nick && s.m.nick.trim());
+    // several tabs of the same browser profile share one device id → show ONE device
+    // (the most recently opened tab represents it and receives the files)
+    const byDid = new Map();
+    for (const s of named) {
+      if (!s.m.did) continue;
+      const prev = byDid.get(s.m.did);
+      if (!prev || s.m.joined > prev.m.joined) byDid.set(s.m.did, s);
+    }
+    named = named.filter((s) => !s.m.did || byDid.get(s.m.did) === s);
+    const peerList = named.map((s) => ({
       id: s.m.id, nick: s.m.nick, ua: s.m.ua, ip: s.m.ip,
-      city: s.m.city, country: s.m.country, joined: s.m.joined, did: s.m.did, app: s.m.app || null,
+      city: s.m.city, country: s.m.country, joined: s.m.joined, did: s.m.did, app: s.m.app || null, trusts: s.m.trusts || [], common: s.m.common || [],
     }));
     const msg = JSON.stringify({ type: "peers", peers: peerList });
     for (const { ws } of all) this.safeSend(ws, msg);
@@ -114,6 +125,13 @@ export class ShareRoom {
         m.ua = msg.ua || null;
         m.nick = String(msg.nick || "").slice(0, 24);
         m.did = String(msg.did || "").slice(0, 16);
+        m.trusts = Array.isArray(msg.trusts) ? msg.trusts.slice(0, 200).map((x) => String(x).slice(0, 16)) : [];
+        // files this device offers in the Common Share box (metadata only; bytes stay on the device)
+        m.common = Array.isArray(msg.common) ? msg.common.slice(0, 50).map((x) => ({
+          cid: String(x.cid || "").slice(0, 40),
+          name: String(x.name || "").slice(0, 200),
+          size: Math.max(0, Number(x.size) || 0),
+        })) : [];
         // desktop app announces itself: {v, port, ips[]} so app peers can use the LAN TCP fast path
         if (msg.app && typeof msg.app === "object") {
           m.app = {
@@ -150,12 +168,78 @@ export class ShareRoom {
   async webSocketError() { this.broadcast(); }
 }
 
+// ---------------------------------------------------------------------------
+// RelayPipe: a dumb, fast, per-transfer byte pipe. Exactly two WebSockets
+// (role=a sender, role=b receiver); anything one side sends is forwarded to
+// the other verbatim. Several pipes per transfer run in parallel (each is its
+// own DO instance → its own CPU/socket) so a WAN transfer saturates the
+// sender's upload instead of crawling on WebRTC's congestion control.
+export class RelayPipe {
+  constructor(ctx) {
+    this.ctx = ctx;
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+  async fetch(request) {
+    if (request.headers.get("Upgrade") !== "websocket") return new Response("ws only", { status: 426 });
+    const role = new URL(request.url).searchParams.get("role") === "b" ? "b" : "a";
+    // one socket per role; a newer connection replaces an older one
+    for (const ws of this.ctx.getWebSockets(role)) { try { ws.close(1000, "replaced"); } catch {} }
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.ctx.acceptWebSocket(server, [role]);
+    server.serializeAttachment({ role, t: Date.now() });
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  other(role) { return this.ctx.getWebSockets(role === "a" ? "b" : "a"); }
+  async webSocketMessage(ws, msg) {
+    let a; try { a = ws.deserializeAttachment(); } catch { return; }
+    if (!a) return;
+    if (typeof msg === "string" && msg === "hello?") { // "is the other side here?"
+      ws.send(this.other(a.role).length ? "peer-ready" : "peer-missing");
+      return;
+    }
+    for (const o of this.other(a.role)) { try { o.send(msg); } catch {} }
+  }
+  async webSocketClose(ws) {
+    let a; try { a = ws.deserializeAttachment(); } catch { return; }
+    if (!a) return;
+    for (const o of this.other(a.role)) { try { o.close(1000, "peer-closed"); } catch {} }
+  }
+  async webSocketError(ws) { return this.webSocketClose(ws); }
+}
+
+// Short-lived TURN credentials from Cloudflare Realtime (TURN service). Lets peers
+// behind CGNAT / strict NAT still connect "directly" over WebRTC via Cloudflare's
+// edge instead of the slow single-DO relay. Secrets: TURN_KEY_ID, TURN_KEY_SECRET.
+async function turnCredentials(env) {
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_SECRET) return null;
+  const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.TURN_KEY_SECRET}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ttl: 6 * 3600 }),
+  });
+  if (!r.ok) return null;
+  return r.json(); // { iceServers: [...] }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/ws") {
       const id = env.ROOM.idFromName("main");
       return env.ROOM.get(id).fetch(request);
+    }
+    if (url.pathname.startsWith("/relay/")) {
+      const name = url.pathname.slice(7);
+      if (!/^[A-Za-z0-9_-]{8,80}$/.test(name)) return new Response("bad pipe", { status: 400 });
+      const id = env.PIPE.idFromName(name);
+      return env.PIPE.get(id).fetch(request);
+    }
+    if (url.pathname === "/turn") {
+      const c = await turnCredentials(env);
+      return new Response(JSON.stringify(c || { iceServers: [] }), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" },
+      });
     }
     return env.ASSETS.fetch(request);
   },

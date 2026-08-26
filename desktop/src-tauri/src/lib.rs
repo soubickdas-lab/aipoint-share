@@ -38,7 +38,7 @@ impl Default for Settings {
     fn default() -> Self {
         let dl = dirs::download_dir()
             .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
-            .join("AIPoint Share");
+            .join("Dukto");
         Settings {
             nick: String::new(),
             download_dir: dl.to_string_lossy().to_string(),
@@ -722,14 +722,14 @@ pub fn run() {
             // tray
             use tauri::menu::{Menu, MenuItem};
             use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
-            let show_i = MenuItem::with_id(app, "show", "Open AIPoint Share", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Open Dukto", true, None::<&str>)?;
             let dl_i = MenuItem::with_id(app, "dl", "Open download folder", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &dl_i, &quit_i])?;
             let mut tb = TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .tooltip("AIPoint Share")
+                .tooltip("Dukto")
                 .on_menu_event(|app, ev| match ev.id().as_ref() {
                     "show" => show_main(app.clone()),
                     "dl" => { let st = app.state::<AppState>(); let _ = open_download_dir(app.clone(), st); }
@@ -762,5 +762,5 @@ pub fn run() {
             tcp_send, tcp_cancel, show_main
         ])
         .run(tauri::generate_context!())
-        .expect("error while running AIPoint Share");
+        .expect("error while running Dukto");
 }

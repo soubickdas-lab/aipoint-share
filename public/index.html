@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AIPoint Share</title>
+<title>Dukto</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 <style>
 :root{
@@ -16,7 +16,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 body::before{content:"";position:fixed;inset:0;background:
   radial-gradient(600px 300px at 20% -5%,rgba(91,140,255,.13),transparent),
   radial-gradient(600px 300px at 85% 0%,rgba(139,91,255,.10),transparent);pointer-events:none}
-.wrap{max-width:1060px;margin:0 auto;padding:22px 18px 60px;position:relative}
+.wrap{max-width:1560px;margin:0 auto;padding:22px 18px 60px;position:relative}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:26px;flex-wrap:wrap}
 .logo{font-size:1.35rem;font-weight:700;letter-spacing:-.02em}
 .logo span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -87,17 +87,85 @@ html.tauri #getApp{display:none}
 .corner{position:absolute;top:12px;right:12px;display:flex;gap:6px;align-items:center}
 .netb{font-size:.62rem;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:99px;border:1px solid var(--border);color:var(--dim2);background:var(--bg2);white-space:nowrap}
 .netb.local{color:var(--green);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.1)}
+.tdot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:baseline;margin-right:1px}
+.tdot.g{background:var(--green);box-shadow:0 0 6px rgba(52,211,153,.7)}
+.tdot.r{background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.55)}
+.trow{display:flex;justify-content:flex-end;margin-top:9px}
+.tsw{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:.66rem;font-weight:700;letter-spacing:.05em;color:var(--red);user-select:none;text-transform:uppercase}
+.tsw .track{width:34px;height:18px;border-radius:99px;background:rgba(248,113,113,.18);border:1px solid rgba(248,113,113,.55);position:relative;transition:.2s;flex:none}
+.tsw .knob{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--red);transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.tsw:hover .track{filter:brightness(1.25)}
+.tsw.on{color:var(--green)}
+.tsw.on .track{background:rgba(52,211,153,.18);border-color:rgba(52,211,153,.55)}
+.tsw.on .knob{left:18px;background:var(--green)}
 .pinb{background:var(--bg2);border:1px solid var(--border);border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--dim2);transition:.15s;padding:0}
 .pinb:hover{border-color:var(--amber);color:var(--amber)}
 .pinb.on{border-color:var(--amber);background:rgba(251,191,36,.15);color:var(--amber)}
 .compose{margin-top:10px;display:none;gap:6px}
 .compose.open{display:flex}
 .peer.sel{cursor:default}
-body.pagedrag::after{content:"📂  Drop to send to " attr(data-target);position:fixed;inset:0;background:rgba(10,14,23,.82);border:3px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;color:var(--green);z-index:50;pointer-events:none}
+body.pagedrag::after{content:attr(data-msg);position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card2);border:2px dashed var(--green);border-radius:14px;padding:12px 22px;font-size:.95rem;font-weight:700;color:var(--green);z-index:50;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5);white-space:nowrap}
+body.pagedrag .peer{border-color:rgba(52,211,153,.45)}
 .compose textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text);font:inherit;font-size:.82rem;padding:8px 10px;resize:vertical;min-height:40px;max-height:200px;outline:none}
 .compose textarea:focus{border-color:var(--accent)}
 .compose .btn{padding:0 12px}
 .empty{color:var(--dim2);font-size:.85rem;padding:30px;text-align:center;border:1px dashed var(--border);border-radius:14px}
+.cols{display:grid;grid-template-columns:250px minmax(0,1fr) 320px;gap:16px;align-items:start}
+.colL,.colR{position:sticky;top:14px}
+@media(max-width:1150px){.cols{grid-template-columns:1fr}.colL,.colR{position:static}.colC{order:1}.colR{order:2}.colL{order:3}}
+.crow{cursor:pointer}
+.crow.mine{cursor:default}
+.crow.sel{border-color:var(--accent);background:rgba(91,140,255,.08)}
+.crow .ck{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--dim2);flex:none;display:flex;align-items:center;justify-content:center;font-size:.62rem;color:transparent}
+.crow.sel .ck{background:var(--accent);border-color:var(--accent);color:#fff}
+.crow.locked .ck{opacity:.4}
+.panel{background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:18px}
+.phead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ptitle{font-weight:800;font-size:.95rem;letter-spacing:-.01em}
+.phead .hint{color:var(--dim2);font-size:.72rem;flex:1}
+.lockrow{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:.85rem}
+.lockrow input{background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text);padding:8px 11px;font:inherit;font-size:.85rem;outline:none;width:140px}
+.lockrow input:focus{border-color:var(--accent)}
+.lockrow input.bad{border-color:var(--red);animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.cdrop{border:1.5px dashed var(--border);border-radius:12px;padding:14px;text-align:center;font-size:.82rem;color:var(--dim);cursor:pointer;transition:.15s}
+.cdrop:hover,.cdrop.drag{border-color:var(--accent);background:rgba(91,140,255,.06)}
+.clist{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.crow{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:.82rem}
+.crow .cico{font-size:1.05rem;flex:none}
+.crow .cinfo{flex:1;min-width:0}
+.crow .cnm{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .cmeta{color:var(--dim2);font-size:.7rem;margin-top:1px}
+.srow{display:flex;align-items:center;gap:11px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 13px;font-size:.84rem;margin-bottom:7px;transition:.15s}
+.srow.drag{border-color:var(--green);background:rgba(52,211,153,.07)}
+.srow .sinfo{flex:1;min-width:0}
+.srow .snm{font-weight:700}
+.srow .smeta{color:var(--dim2);font-size:.71rem;margin-top:1px}
+.srow.off{opacity:.85}
+.sdot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;vertical-align:baseline}
+.sdot.g{background:var(--green);box-shadow:0 0 7px rgba(52,211,153,.8)}
+.sdot.r{background:var(--red);box-shadow:0 0 7px rgba(248,113,113,.6)}
+.starb{background:var(--bg2);border:1px solid var(--border);border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:.82rem;color:var(--dim2);transition:.15s;padding:0;flex:none}
+.starb:hover{border-color:var(--amber);color:var(--amber)}
+.starb.on{color:var(--amber);border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.12)}
+.peer{transition:.18s}
+.peer:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.35)}
+h2.sec{font-size:.84rem;color:var(--dim)}
+#tray{background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:16px;padding:13px 15px;margin-bottom:18px}
+.trayhead{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.8rem;color:var(--dim);margin-bottom:10px;flex-wrap:wrap}
+.trayhead b{color:var(--text)}
+.trayhead .hint{color:var(--dim2);font-weight:400;font-size:.72rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:7px 10px;font-size:.78rem;cursor:grab;user-select:none;transition:.12s;max-width:260px}
+.chip:hover{border-color:var(--dim2)}
+.chip.sel{border-color:var(--accent);background:rgba(91,140,255,.1);box-shadow:0 0 0 1px rgba(91,140,255,.35)}
+.chip:active{cursor:grabbing}
+.chip .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.chip .sz{color:var(--dim2);font-size:.68rem;flex:none}
+.chip .rm{color:var(--dim2);cursor:pointer;font-size:.8rem;flex:none;padding:0 2px}
+.chip .rm:hover{color:var(--red)}
+.chip .ck{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--dim2);flex:none;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:transparent}
+.chip.sel .ck{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* transfers */
 .tx{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:.85rem}
@@ -111,6 +179,9 @@ body.pagedrag::after{content:"📂  Drop to send to " attr(data-target);position
 .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .15s}
 .tx.done .bar i{background:var(--green)}
 .tx.fail .bar i{background:var(--red)}
+.tx.done .cx,.tx.fail .cx{display:none}
+.tx .cx{border-color:rgba(248,113,113,.4);color:var(--red)}
+.tx .cx:hover{background:rgba(248,113,113,.12)}
 .tx.text{border-left:3px solid var(--accent2)}
 .tx.text.in{border-left-color:var(--green)}
 .tx .txt{margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:.85rem;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;font-family:Consolas,monospace}
@@ -129,13 +200,24 @@ footer a{color:var(--dim)}
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">⚡ AIPoint <span>Share</span></div>
+    <div class="logo">⚡ Duk<span>to</span></div>
     <div style="display:flex;gap:8px;align-items:center">
       <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
+      <button class="btn sm" id="refreshBtn" title="Reconnect &amp; refresh device list">🔄 Refresh</button>
       <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
       <button class="btn sm" id="settingsBtn" style="display:none">⚙️ Settings</button>
     </div>
   </header>
+
+  <!-- mandatory device name -->
+  <div id="nameModal" class="modal" style="display:none">
+    <div class="mbox" style="max-width:420px">
+      <div class="mhead"><b>👋 Name this device</b></div>
+      <p style="color:var(--dim);font-size:.85rem;margin-bottom:12px">Other devices will see this name (e.g. <i>Soubick PC</i>, <i>Office Mac</i>, <i>Mom's phone</i>). Set it once — it's remembered.</p>
+      <input id="nameInput" maxlength="24" placeholder="Device name…" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text);padding:10px 12px;font:inherit;font-size:.95rem;outline:none">
+      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" id="nameSave">Save & continue ➤</button></div>
+    </div>
+  </div>
 
   <!-- desktop app settings -->
   <div id="settingsModal" class="modal" style="display:none">
@@ -150,23 +232,50 @@ footer a{color:var(--dim)}
     </div>
   </div>
 
+  <div class="cols">
+  <aside class="colL">
+    <div id="savedBox" class="panel">
+      <div class="phead"><span class="ptitle">⭐ Saved PCs</span></div>
+      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Always here, online or offline · drop on an offline PC to queue — auto-sends when it returns</div>
+      <div id="savedList"></div>
+    </div>
+  </aside>
+  <main class="colC">
   <div class="idcard">
     <div class="avatar" id="myAvatar">👤</div>
     <div class="idmain">
-      <div class="idname"><span id="myName">…</span><span class="edit" id="editNick" title="Change name">✏️</span><span class="idtag" id="myId">····</span><span class="youbadge">YOU</span></div>
-      <div class="idmeta"><span id="myDevice">…</span><span id="myLoc">…</span><span id="myIp"></span></div>
+      <div class="idname"><span id="myName">…</span><span class="edit" id="editNick" title="Change name">✏️</span><span class="youbadge">YOU</span></div>
+      <div class="idmeta"><span id="myDevice">…</span><span id="myLoc">…</span></div>
     </div>
   </div>
 
+  <div id="tray" style="display:none">
+    <div class="trayhead"><span>📦 Staged files — <b id="trayCount">0</b> <span class="hint">click to select · drag a chip onto a device to send (selected ones go together)</span></span><button class="btn sm" id="trayClear">Clear all</button></div>
+    <div class="chips" id="trayChips"></div>
+  </div>
   <h2 class="sec">🟢 Other Online Devices — <span id="peerCount">0</span>&nbsp;<span class="hint">drag files/folders onto a device · click a card to select it</span></h2>
-  <div class="target" id="targetBar" style="display:none"></div>
   <div class="grid" id="peerGrid"></div>
-  <div class="empty" id="noPeers">Abhi koi aur device online nahi hai.<br>Kisi aur device/phone par ye site kholo — uska card yahan aa jayega.</div>
+  <div class="empty" id="noPeers">No other devices online right now.<br>Open this site on another device or phone — its card will appear here.</div>
 
   <h2 class="sec" id="txHead" style="display:none"><span>Activity</span><button class="btn sm" id="clearAct">Clear</button></h2>
   <div id="txList"></div>
+  </main>
+  <aside class="colR">
+    <div id="commonBox" class="panel">
+      <div class="phead"><span class="ptitle">🗃 Common Share</span><button class="btn sm" id="commonLockBtn" style="display:none">🔒 Lock</button></div>
+      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Everyone can drop &amp; see the list · <b>unlock to download</b> · a file vanishes when its owner goes offline</div>
+      <div id="commonLocked" class="lockrow">
+        <input id="commonPass" type="password" placeholder="🔒 Password to download" maxlength="16" autocomplete="off" style="flex:1;min-width:120px">
+        <button class="btn primary sm" id="commonUnlock">Unlock</button>
+      </div>
+      <div class="cdrop" id="commonDrop" style="margin-top:10px">📥 <b>Drop files here</b> to share with everyone<br><span class="pickc" style="color:var(--accent);cursor:pointer;font-size:.76rem">or choose files</span><input type="file" id="commonPick" multiple hidden></div>
+      <div id="commonList" class="clist"></div>
+      <div id="commonActs" style="display:none;margin-top:9px"><button class="btn primary sm" id="dlSel" style="width:100%">⬇ Download selected (<span id="dlSelN">0</span>)</button></div>
+    </div>
+  </aside>
+  </div>
 
-  <footer>AIPoint Share · Local = direct LAN transfer ⚡ · Remote = P2P / relay · files never stored on any server · <a href="https://aipoint.online">aipoint.online</a></footer>
+  <footer>Dukto · Local = direct LAN transfer ⚡ · Remote = P2P / relay · files never stored on any server · <a href="https://aipoint.online">aipoint.online</a></footer>
 </div>
 <div id="toasts"></div>
 
@@ -180,6 +289,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
+const BUILD="20260826080823";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
@@ -193,6 +303,9 @@ if(!myDid){
   localStorage.setItem("share_did",myDid);
 }
 let pinnedDid=localStorage.getItem("share_pin")||"";
+let trusted={}; try{ trusted=JSON.parse(localStorage.getItem("share_trust")||"{}")||{}; }catch{}
+function isTrusted(p){ return !!(p&&p.did&&trusted[p.did]); }
+function setTrust(p,on){ if(!p||!p.did) return; if(on) trusted[p.did]=1; else delete trusted[p.did]; localStorage.setItem("share_trust",JSON.stringify(trusted)); renderPeers(); sendHello(); }
 let recent={}; try{ recent=JSON.parse(localStorage.getItem("share_recent")||"{}")||{}; }catch{}
 function touchPeer(peerId){ // remember "last worked with" per device
   const p=peers.find(x=>x.id===peerId); if(!p||!p.did) return;
@@ -248,6 +361,26 @@ function fmtSince(t){
   return Math.floor(s/3600)+"h "+Math.floor(s%3600/60)+"m";
 }
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+let actx=null;
+function sfx(kind){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==="suspended") actx.resume().catch(()=>{});
+    const t0=actx.currentTime;
+    const note=(f,st,dur,vol,type)=>{
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.type=type||"sine"; o.frequency.setValueAtTime(f,t0+st);
+      g.gain.setValueAtTime(0,t0+st);
+      g.gain.linearRampToValueAtTime(vol||.16,t0+st+.015);
+      g.gain.exponentialRampToValueAtTime(.0001,t0+st+dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t0+st); o.stop(t0+st+dur+.05);
+    };
+    if(kind==="incoming"){ note(659.25,0,.16,.14,"triangle"); note(987.77,.11,.24,.14,"triangle"); }
+    else if(kind==="done"){ note(523.25,0,.14,.13); note(659.25,.1,.14,.13); note(783.99,.2,.32,.17); }
+  }catch{}
+}
+document.addEventListener("pointerdown",()=>{ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume().catch(()=>{}); }catch{} },{capture:true,once:true});
 function toast(msg,cls){
   const d=document.createElement("div");
   d.className="toast "+(cls||""); d.innerHTML=msg;
@@ -279,6 +412,20 @@ function setConn(on){
    congestion window → N× throughput), CH_PER_PC unordered channels each ---------- */
 const rtc=new Map();
 const RTC_CFG={iceServers:[{urls:"stun:stun.cloudflare.com:3478"},{urls:"stun:stun.l.google.com:19302"}]};
+// Cloudflare TURN (if configured on the worker): makes "Remote" peers connect via
+// Cloudflare's edge instead of the slow DO relay. Refreshed every 5h (6h ttl).
+async function loadTurn(){
+  try{
+    const r=await fetch((SIGNAL_HOST===location.host?"":"https://"+SIGNAL_HOST)+"/turn",{cache:"no-store"});
+    const j=await r.json();
+    if(j&&Array.isArray(j.iceServers)&&j.iceServers.length){
+      RTC_CFG.iceServers=[{urls:"stun:stun.cloudflare.com:3478"},...j.iceServers];
+      RTC_CFG.iceTransportPolicy="all";
+      window.__turnOk=true;
+    }
+  }catch{}
+}
+const turnReady=Promise.race([loadTurn(),new Promise(r=>setTimeout(r,2500))]); setInterval(loadTurn,5*3600*1000);
 const N_PC=3, CH_PER_PC=2;
 function ensureRtc(peerId, initiator){
   let e=rtc.get(peerId);
@@ -382,7 +529,7 @@ async function sendHello(){
       myMeta.ua={os:osName, br:"App", dev:"Desktop"};
     }
   }
-  send({type:"hello", ua:myMeta.ua, nick:localStorage.getItem("share_nick")||"", did:myDid, app});
+  send({type:"hello", ua:myMeta.ua, nick:localStorage.getItem("share_nick")||"", did:myDid, app, trusts:Object.keys(trusted).slice(0,200), common:commonPayload()});
 }
 function handleJson(m){
   switch(m.type){
@@ -394,7 +541,7 @@ function handleJson(m){
     }
     case "peers":{
       peers=(m.peers||[]).filter(p=>p.id!==myId&&!(p.did&&p.did===myDid));
-      for(const p of peers) if(!rtc.has(p.id)&&myId<p.id) ensureRtc(p.id,true);
+      turnReady.then(()=>{ for(const p of peers) if(!rtc.has(p.id)&&myId<p.id) ensureRtc(p.id,true); });
       const ids=new Set(peers.map(p=>p.id));
       for(const id of [...rtc.keys()]) if(!ids.has(id)) dropRtc(id);
       if(selId&&!ids.has(selId)) selId=null;
@@ -408,22 +555,22 @@ function handleJson(m){
     case "received": onReceived(m); break;
     case "cancel": onCancel(m); break;
     case "text": onText(m); break;
+    case "creq": onCreq(m); break;
+    case "pipes": onPipes(m); break;
     case "err": if(m.msg==="peer-gone") failTxByTid(m.tid,"device left"); break;
   }
 }
 
 /* ---------- render: me ---------- */
 function renderMe(){
-  document.getElementById("myId").textContent=myId;
   document.getElementById("myAvatar").textContent=devIcon(myMeta.ua);
   document.getElementById("myName").textContent=localStorage.getItem("share_nick")||funName(myId);
   const ua=myMeta.ua;
   document.getElementById("myDevice").innerHTML=ua?`<b>${esc(ua.os)}</b> · ${esc(ua.br)} · ${esc(ua.dev)}`:"";
   document.getElementById("myLoc").innerHTML=(myMeta.city||myMeta.country)?`📍 <b>${esc([myMeta.city,myMeta.country].filter(Boolean).join(", "))}</b>`:"";
-  document.getElementById("myIp").textContent=myMeta.ip?("IP "+myMeta.ip):"";
 }
 document.getElementById("editNick").onclick=()=>{
-  const n=prompt("Apna naam:",localStorage.getItem("share_nick")||"");
+  const n=prompt("Your device name:",localStorage.getItem("share_nick")||"");
   if(n===null) return;
   localStorage.setItem("share_nick",n.trim()); send({type:"nick",nick:n.trim()}); renderMe();
 };
@@ -447,18 +594,10 @@ function sortedPeers(){
 }
 function toggleSelect(p){
   if(pinnedDid&&p.did===pinnedDid){ pinnedDid=""; }
-  else { pinnedDid=p.did||""; toast(`✅ <b>${esc(displayName(p))}</b> selected — ab page par kahin bhi drop / Ctrl+V karo`,"g"); }
+  else { pinnedDid=p.did||""; toast(`✅ <b>${esc(displayName(p))}</b> selected — drop files anywhere on this page or press Ctrl+V`,"g"); }
   localStorage.setItem("share_pin",pinnedDid); renderPeers();
 }
-function renderTargetBar(){
-  const bar=document.getElementById("targetBar");
-  const t=targetPeer();
-  if(!t){ bar.style.display="none"; document.body.classList.remove("hasTarget"); return; }
-  bar.style.display=""; document.body.classList.add("hasTarget");
-  const tag=t.why==="selected"?'<span class="tag sel">SELECTED</span>':'<span class="tag rec">RECENT</span>';
-  bar.innerHTML=`🎯 Drop files/folders <b>anywhere</b> on this page or press <kbd>Ctrl</kbd>+<kbd>V</kbd> → ${tag} <b>${esc(displayName(t.p))}</b>${t.why==="selected"?' · <span style="cursor:pointer;color:var(--accent)" id="unsel">deselect</span>':' · click a card to select it'}`;
-  const u=document.getElementById("unsel"); if(u) u.onclick=()=>{pinnedDid="";localStorage.setItem("share_pin","");renderPeers();};
-}
+function renderTargetBar(){ const t=targetPeer(); document.body.classList.toggle("hasTarget",!!t); }
 
 /* ---------- render: peers ---------- */
 function renderPeers(){
@@ -472,11 +611,12 @@ function renderPeers(){
     if(!card){
       card=document.createElement("div"); card.className="peer"; card.id="peer-"+p.id;
       card.innerHTML=`
-        <div class="corner"><span class="netb">…</span></div>
+        <div class="corner"><button class="starb" title="Save this PC — queue files for it even when it is offline">☆</button><span class="netb">…</span></div>
         <div class="top"><div class="pavatar"></div><div><div class="pname"></div><div class="pmeta"></div></div></div>
         <div class="pinfo"></div>
-        <div class="phint">📎 Drag files/folders here · <span class="pf">📄 files</span> · <span class="pd">📁 folder</span> · <span class="pt">📝 text</span> · <span class="ps" title="50 MB dummy transfer, nothing is saved on their side">⚡ speed test</span></div>
-        <div class="compose"><textarea rows="1" placeholder="Text / link paste karo → Send (Ctrl+Enter)"></textarea><button class="btn primary sm">Send ➤</button></div>
+        <div class="phint">📎 Drag files/folders here · <span class="pf">📄 files</span> · <span class="pd">📁 folder</span> · <span class="pt">📝 text</span></div>
+        <div class="compose"><textarea rows="1" placeholder="Paste text / link → Send (Ctrl+Enter)"></textarea><button class="btn primary sm">Send ➤</button></div>
+        <div class="trow"><span class="tsw" title="Trusted devices can send to you without asking"><span class="tlab">Trust</span><span class="track"><span class="knob"></span></span></span></div>
         <input type="file" multiple hidden class="fi"><input type="file" webkitdirectory directory multiple hidden class="di">`;
       grid.appendChild(card);
       const fi=card.querySelector(".fi"), di=card.querySelector(".di");
@@ -488,57 +628,251 @@ function renderPeers(){
         sendFolder(p.id,root,files.map(f=>({file:f,path:f.webkitRelativePath||f.name}))); };
       const ta=card.querySelector("textarea"), sb=card.querySelector(".compose .btn"), comp=card.querySelector(".compose");
       card.querySelector(".pt").onclick=e=>{e.stopPropagation(); comp.classList.toggle("open"); if(comp.classList.contains("open")) ta.focus();};
-      card.querySelector(".ps").onclick=e=>{e.stopPropagation(); sendBench(p.id);};
+      card.querySelector(".starb").onclick=e=>{e.stopPropagation();toggleSave(p);};
+      card.querySelector(".tsw").onclick=e=>{e.stopPropagation(); const on=!isTrusted(p); setTrust(p,on); toast(on?`🤝 <b>${esc(displayName(p))}</b> trusted — can now send without asking`:`<b>${esc(displayName(p))}</b> untrusted — will ask again`,on?"g":"r");};
       sb.onclick=e=>{e.stopPropagation(); const v=ta.value; if(v.trim()){sendText(p.id,v);ta.value="";}};
       ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();sb.click();} });
       ta.addEventListener("click",e=>e.stopPropagation());
       card.addEventListener("click",e=>{ if(e.target.closest("button,textarea,input,.pf,.pd,.pt")) return; toggleSelect(p); });
       card.addEventListener("dragover",e=>{e.preventDefault();card.classList.add("drag");});
       card.addEventListener("dragleave",e=>{ if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
-      card.addEventListener("drop",e=>{e.preventDefault();card.classList.remove("drag");handleDrop(p.id,e.dataTransfer);});
+      card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");
+        const sid=e.dataTransfer.getData("droply/staged");
+        if(sid) sendStagedTo(p.id,sid); else handleDrop(p.id,e.dataTransfer);});
     }
     grid.appendChild(card); // re-append in sorted order
     const isSel=!!(pinnedDid&&p.did===pinnedDid), isRec=!isSel&&!selectedPeer()&&recent[p.did]&&order[0]===p;
     card.classList.toggle("sel",isSel);
     card.querySelector(".pavatar").textContent=devIcon(p.ua);
-    card.querySelector(".pname").innerHTML=`${esc(displayName(p))}${p.app?' <span class="tag app" title="Desktop app v'+esc(p.app.v)+'">🖥 APP</span>':""}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}${isRec?' <span class="tag rec">RECENT</span>':""}`;
-    card.querySelector(".pmeta").innerHTML=`<span class="idtag">${p.id}</span> · online ${fmtSince(p.joined)}`;
+    card.querySelector(".pname").innerHTML=`<span class="sdot g" title="Online"></span> ${esc(displayName(p))}${p.app?' <span class="tag app" title="Desktop app v'+esc(p.app.v)+'">🖥 APP</span>':""}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}${isRec?' <span class="tag rec">RECENT</span>':""}`;
+    card.querySelector(".pmeta").innerHTML=`online ${fmtSince(p.joined)}`;
     const ua=p.ua||{};
     card.querySelector(".pinfo").innerHTML=`
       <span>💻 <b>${esc(ua.os||"?")}</b> · ${esc(ua.br||"?")}</span><span>${esc(ua.dev||"")}</span>
-      <span>📍 <b>${esc([p.city,p.country].filter(Boolean).join(", ")||"—")}</b></span><span>IP ${esc(p.ip||"—")}</span>`;
+      <span>📍 <b>${esc([p.city,p.country].filter(Boolean).join(", ")||"—")}</b></span>
+      <span title="Whether this device has trusted you — green means your files reach them without asking">${(p.trusts||[]).includes(myDid)?'<span class="tdot g"></span> <b>Trusts you</b>':'<span class="tdot r"></span> Not trusted yet'}</span>`;
+    { const sw=card.querySelector(".tsw"), tr=isTrusted(p); sw.classList.toggle("on",tr); sw.querySelector(".tlab").textContent=tr?"Trusted":"Trust"; }
+    { const sb=card.querySelector(".starb"), on=!!savedPcs[p.did]; sb.textContent=on?"⭐":"☆"; sb.classList.toggle("on",on); }
     updBadge(p.id);
   }
   for(const el of [...grid.children]) if(!have.has(el.id.slice(5))) el.remove();
   renderTargetBar();
+  renderSaved(); renderCommon(); flushQueues();
 }
-setInterval(()=>{ for(const p of peers){ const c=document.getElementById("peer-"+p.id); if(c) c.querySelector(".pmeta").innerHTML=`<span class="idtag">${p.id}</span> · online ${fmtSince(p.joined)}`; } },30000);
+setInterval(()=>{ for(const p of peers){ const c=document.getElementById("peer-"+p.id); if(c) c.querySelector(".pmeta").innerHTML=`online ${fmtSince(p.joined)}`; } },30000);
 function pruneGonePeers(){
   const ids=new Set(peers.map(p=>p.id));
   for(const t of transfers.values()) if(t.state!=="done"&&t.state!=="fail"&&!ids.has(t.peer)) failTx(t,"device left");
 }
 
+/* ---------- common share: password-gated shared box; bytes stay with the owner ---------- */
+const COMMON_PASS="1234";
+let myCommon=[], commonSeq=0;
+const expectedTids=new Set(); // downloads we requested → auto-accept their offers
+function commonUnlocked(){ return localStorage.getItem("share_common_ok")==="1"; }
+function commonPayload(){ return myCommon.map(x=>({cid:x.cid,name:x.file.name,size:x.file.size})); }
+function addCommonFiles(files){
+  let n=0;
+  for(const f of files){ if(!f||!f.size) continue; myCommon.push({cid:myDid+"-"+(++commonSeq),file:f}); n++; }
+  if(n){ sendHello(); renderCommon(); toast(`🗃 ${n} file(s) shared with everyone — they stay only while this tab is open`); }
+}
+let commonSel=new Set(); const commonIndex={};
+function lockNudge(){
+  toast("🔒 Enter the password to download","r");
+  const i=document.getElementById("commonPass"); i.focus();
+  i.classList.add("bad"); setTimeout(()=>i.classList.remove("bad"),400);
+}
+function renderCommon(){
+  const locked=!commonUnlocked();
+  document.getElementById("commonLocked").style.display=locked?"":"none";
+  document.getElementById("commonLockBtn").style.display=locked?"none":"";
+  const box=document.getElementById("commonList"); box.innerHTML="";
+  for(const k of Object.keys(commonIndex)) delete commonIndex[k];
+  for(const it of myCommon){
+    const r=document.createElement("div"); r.className="crow mine";
+    r.innerHTML=`<span class="cico">📄</span><div class="cinfo"><div class="cnm">${esc(it.file.name)}</div><div class="cmeta">${fmtSize(it.file.size)} · shared by <b>you</b></div></div><button class="btn sm rm" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕</button>`;
+    r.querySelector(".rm").onclick=()=>{ myCommon=myCommon.filter(x=>x!==it); sendHello(); renderCommon(); };
+    box.appendChild(r);
+  }
+  const avail=new Set();
+  for(const pr of peers) for(const c of (pr.common||[])){
+    const key=pr.id+"|"+c.cid; avail.add(key); commonIndex[key]={owner:pr.id,cid:c.cid,name:c.name};
+    const r=document.createElement("div"); r.className="crow"+(commonSel.has(key)?" sel":"")+(locked?" locked":"");
+    r.innerHTML=`<span class="ck">✓</span><span class="cico">📄</span><div class="cinfo"><div class="cnm">${esc(c.name)}</div><div class="cmeta">${fmtSize(c.size)} · from <b>${esc(displayName(pr))}</b></div></div><button class="btn primary sm dl">⬇</button>`;
+    r.onclick=e=>{
+      if(e.target.classList.contains("dl")) return;
+      if(locked){ lockNudge(); return; }
+      if(commonSel.has(key)) commonSel.delete(key); else commonSel.add(key);
+      renderCommon();
+    };
+    r.querySelector(".dl").onclick=()=>{ if(locked){ lockNudge(); return; } requestCommon(pr.id,c.cid,c.name); };
+    box.appendChild(r);
+  }
+  for(const k of [...commonSel]) if(!avail.has(k)) commonSel.delete(k);
+  document.getElementById("commonActs").style.display=commonSel.size?"":"none";
+  document.getElementById("dlSelN").textContent=commonSel.size;
+  if(!box.children.length) box.innerHTML='<div style="color:var(--dim2);font-size:.76rem;text-align:center;padding:10px 4px">Box is empty — drop something in it</div>';
+}
+document.getElementById("dlSel").onclick=()=>{
+  if(!commonUnlocked()){ lockNudge(); return; }
+  for(const k of [...commonSel]){ const x=commonIndex[k]; if(x) requestCommon(x.owner,x.cid,x.name); }
+  commonSel.clear(); renderCommon();
+};
+function requestCommon(ownerId,cid,name){
+  const tid=(++tidCounter)>>>0;
+  expectedTids.add(tid);
+  send({type:"creq",to:ownerId,tid,cid});
+  toast(`⬇ Downloading <b>${esc(name)}</b>…`);
+}
+function onCreq(m){
+  const it=myCommon.find(x=>x.cid===m.cid);
+  if(!it){ send({type:"decline",to:m.from,tid:m.tid}); return; }
+  startTransfer(m.from,{name:it.file.name,size:it.file.size,mime:it.file.type,source:()=>blobSource(it.file),tid:m.tid,label:"🗃 common"});
+}
+document.getElementById("commonUnlock").onclick=()=>{
+  const i=document.getElementById("commonPass");
+  if(i.value===COMMON_PASS){ localStorage.setItem("share_common_ok","1"); i.value=""; renderCommon(); toast("🗃 Common Share unlocked","g"); }
+  else { i.classList.add("bad"); setTimeout(()=>i.classList.remove("bad"),400); toast("Wrong password","r"); }
+};
+document.getElementById("commonPass").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("commonUnlock").click(); });
+document.getElementById("commonLockBtn").onclick=()=>{ localStorage.removeItem("share_common_ok"); renderCommon(); };
+{
+  const cd=document.getElementById("commonDrop");
+  cd.onclick=e=>{ if(e.target.classList.contains("pickc")||!e.target.closest("input")) document.getElementById("commonPick").click(); };
+  document.getElementById("commonPick").onchange=e=>{ addCommonFiles([...e.target.files]); e.target.value=""; };
+  cd.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();cd.classList.add("drag");});
+  cd.addEventListener("dragleave",()=>cd.classList.remove("drag"));
+  cd.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();cd.classList.remove("drag");addCommonFiles([...e.dataTransfer.files]);});
+}
+
+/* ---------- saved PCs: pinned forever, offline queue auto-sends on arrival ---------- */
+let savedPcs={}; try{ savedPcs=JSON.parse(localStorage.getItem("share_saved")||"{}")||{}; }catch{}
+const sendQueue={}; // did -> [{kind:"file",file} | {kind:"folder",root,list}]
+function saveSaved(){ localStorage.setItem("share_saved",JSON.stringify(savedPcs)); }
+function toggleSave(p){
+  if(!p.did) return;
+  if(savedPcs[p.did]){ delete savedPcs[p.did]; delete sendQueue[p.did]; toast(`<b>${esc(displayName(p))}</b> removed from Saved PCs`); }
+  else { savedPcs[p.did]={nick:displayName(p),os:(p.ua||{}).os||"",dev:(p.ua||{}).dev||""}; toast(`⭐ <b>${esc(displayName(p))}</b> saved — drop files on it any time, even offline`,"g"); }
+  saveSaved(); renderPeers();
+}
+async function queueDrop(did,dt){
+  const items=dt.items?[...dt.items]:[];
+  const entries=items.map(it=>it.webkitGetAsEntry?it.webkitGetAsEntry():null);
+  const q=sendQueue[did]=sendQueue[did]||[];
+  if(!entries.some(Boolean)){ for(const f of dt.files) if(f&&f.size) q.push({kind:"file",file:f}); }
+  else for(let i=0;i<entries.length;i++){
+    const en=entries[i]; if(!en) continue;
+    if(en.isFile){ const f=dt.files[i]||await new Promise(r=>en.file(r)); if(f&&f.size) q.push({kind:"file",file:f}); }
+    else if(en.isDirectory){ const list=[]; await walkDir(en,en.name,list); if(list.length) q.push({kind:"folder",root:en.name,list}); }
+  }
+  renderSaved();
+  toast(`📮 Queued for <b>${esc((savedPcs[did]||{}).nick||"saved PC")}</b> — will auto-send when it comes online. Keep this tab open.`);
+}
+function flushQueues(){
+  for(const did of Object.keys(sendQueue)){
+    const q=sendQueue[did]; if(!q||!q.length) continue;
+    const pr=peers.find(x=>x.did===did); if(!pr) continue;
+    delete sendQueue[did];
+    for(const it of q){ if(it.kind==="file") sendFile(pr.id,it.file); else sendFolder(pr.id,it.root,it.list); }
+    toast(`🚀 <b>${esc(displayName(pr))}</b> came online — sending ${q.length} queued item(s)`,"g");
+  }
+}
+function renderSaved(){
+  const dids=Object.keys(savedPcs);
+  const list=document.getElementById("savedList"); list.innerHTML="";
+  if(!dids.length){ list.innerHTML='<div style="color:var(--dim2);font-size:.75rem;text-align:center;padding:8px 4px;line-height:1.5">No saved PCs yet.<br>Click <b>☆</b> on a device card — it will stay here forever.</div>'; return; }
+  for(const did of dids){
+    const pr=peers.find(x=>x.did===did);
+    if(pr) savedPcs[did].nick=displayName(pr);
+    const info=savedPcs[did], q=(sendQueue[did]||[]);
+    const row=document.createElement("div");
+    row.className="srow"+(pr?"":" off");
+    row.innerHTML=`<span class="sdot ${pr?"g":"r"}"></span>
+      <div class="sinfo"><div class="snm">${esc(info.nick)}</div>
+      <div class="smeta">${pr?"🟢 Online — drops send instantly":"🔴 Offline — drop files to queue"}${q.length?` · <b>${q.length} queued</b>`:""} ${info.os?"· "+esc(info.os):""}</div></div>
+      ${q.length?'<button class="btn sm cq" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕ queue</button>':""}
+      <button class="btn sm un">Remove</button>`;
+    if(row.querySelector(".cq")) row.querySelector(".cq").onclick=()=>{ delete sendQueue[did]; renderSaved(); };
+    row.querySelector(".un").onclick=()=>{ delete savedPcs[did]; delete sendQueue[did]; saveSaved(); renderPeers(); };
+    row.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();row.classList.add("drag");});
+    row.addEventListener("dragleave",()=>row.classList.remove("drag"));
+    row.addEventListener("drop",e=>{
+      e.preventDefault();e.stopPropagation();row.classList.remove("drag");
+      if(pr) handleDrop(pr.id,e.dataTransfer); else queueDrop(did,e.dataTransfer);
+    });
+    list.appendChild(row);
+  }
+}
+
+/* ---------- staging tray: drop with nothing selected → park files here, then drag chips onto a device ---------- */
+let staged=[], stagedSeq=0;
+function renderTray(){
+  const tray=document.getElementById("tray");
+  tray.style.display=staged.length?"":"none";
+  document.getElementById("trayCount").textContent=staged.length;
+  const box=document.getElementById("trayChips"); box.innerHTML="";
+  for(const it of staged){
+    const c=document.createElement("div");
+    c.className="chip"+(it.sel?" sel":""); c.draggable=true;
+    c.innerHTML=`<span class="ck">✓</span><span class="nm">${it.kind==="folder"?"📁 ":"📄 "}${esc(it.name)}</span><span class="sz">${fmtSize(it.size)}</span><span class="rm" title="Remove">✕</span>`;
+    c.onclick=e=>{ if(e.target.classList.contains("rm")) return; it.sel=!it.sel; renderTray(); };
+    c.querySelector(".rm").onclick=()=>{ staged=staged.filter(x=>x!==it); renderTray(); };
+    c.addEventListener("dragstart",e=>{
+      e.dataTransfer.setData("droply/staged",String(it.id));
+      e.dataTransfer.effectAllowed="copy";
+    });
+    box.appendChild(c);
+  }
+}
+document.getElementById("trayClear").onclick=()=>{ staged=[]; renderTray(); };
+function stageFile(file){ if(!file||!file.size) return; staged.push({id:++stagedSeq,kind:"file",file,name:file.name,size:file.size,sel:false}); }
+function stageFolder(root,list){ staged.push({id:++stagedSeq,kind:"folder",root,list,name:root+"/",size:list.reduce((a,e)=>a+e.file.size,0),sel:false}); }
+async function stageDrop(dt){
+  const items=dt.items?[...dt.items]:[];
+  const entries=items.map(it=>it.webkitGetAsEntry?it.webkitGetAsEntry():null);
+  if(!entries.some(Boolean)){ for(const f of dt.files) stageFile(f); renderTray(); return; }
+  for(let i=0;i<entries.length;i++){
+    const en=entries[i]; if(!en) continue;
+    if(en.isFile){ const f=dt.files[i]||await new Promise(r=>en.file(r)); if(f) stageFile(f); }
+    else if(en.isDirectory){ const list=[]; await walkDir(en,en.name,list); if(list.length) stageFolder(en.name,list); }
+  }
+  renderTray();
+  toast(`📦 ${staged.length} item(s) staged — drag a chip onto a device to send`);
+}
+function sendStagedTo(peer,dragId){
+  const dragged=staged.find(x=>String(x.id)===String(dragId));
+  let batch=staged.filter(x=>x.sel);
+  if(!batch.length||(dragged&&!dragged.sel)) batch=dragged?[dragged]:[];
+  if(!batch.length) return;
+  for(const it of batch){ if(it.kind==="file") sendFile(peer,it.file); else sendFolder(peer,it.root,it.list); }
+  staged=staged.filter(x=>!batch.includes(x)); renderTray();
+}
+
 /* ---------- page-wide drop → selected device (cards still take their own drops) ---------- */
 let dragDepth=0;
 document.addEventListener("dragenter",e=>{
-  const t=selectedPeer(); if(!t) return;
   if(!(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))) return;
-  dragDepth++; document.body.dataset.target=displayName(t); document.body.classList.add("pagedrag");
+  const t=selectedPeer();
+  document.body.dataset.msg=t?("📂  Drop anywhere → "+displayName(t)+"   (or drop on any device card)")
+                             :"📦  Drop anywhere to stage — then drag chips onto a device (or drop straight on a card)";
+  dragDepth++; document.body.classList.add("pagedrag");
 });
 document.addEventListener("dragleave",()=>{ if(--dragDepth<=0){dragDepth=0;document.body.classList.remove("pagedrag");} });
-document.addEventListener("dragover",e=>{ if(selectedPeer()) e.preventDefault(); });
+document.addEventListener("dragover",e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
 document.addEventListener("drop",e=>{
   dragDepth=0; document.body.classList.remove("pagedrag");
   if(e.target.closest&&e.target.closest(".peer")) return; // card handled it
-  const t=selectedPeer(); if(!t) return;
-  e.preventDefault(); handleDrop(t.id,e.dataTransfer);
+  if(!(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))) return; // ignore chip drags landing nowhere
+  e.preventDefault();
+  const t=selectedPeer();
+  if(t) handleDrop(t.id,e.dataTransfer); else stageDrop(e.dataTransfer);
 });
 
 /* ---------- global paste → target device ---------- */
 document.addEventListener("paste",e=>{
   const tag=(e.target&&e.target.tagName||"").toLowerCase();
   if(tag==="textarea"||tag==="input") return;
-  const t=targetPeer(); if(!t){ toast("Pehle koi device select ya pin karo, phir Ctrl+V","r"); return; }
+  const t=targetPeer(); if(!t){ toast("Select a device first (click its card), then press Ctrl+V","r"); return; }
   const cd=e.clipboardData; if(!cd) return;
   const files=[...(cd.files||[])];
   if(files.length){ e.preventDefault(); files.forEach((f,i)=>sendFile(t.p.id,f.name?f:new File([f],"pasted-"+(i+1)+"."+(f.type.split("/")[1]||"bin"),{type:f.type}))); return; }
@@ -560,7 +894,7 @@ async function handleDrop(peer,dt){
     if(en.isFile){ const f=dt.files[i]||await new Promise(r=>en.file(r)); if(f) sendFile(peer,f); }
     else if(en.isDirectory){
       const list=[]; await walkDir(en,en.name,list);
-      if(list.length) sendFolder(peer,en.name,list); else toast(`Folder <b>${esc(en.name)}</b> khali hai`,"r");
+      if(list.length) sendFolder(peer,en.name,list); else toast(`Folder <b>${esc(en.name)}</b> is empty`,"r");
     }
   }
 }
@@ -669,16 +1003,24 @@ async function* zipSource(plan){
 
 /* ---------- transfers: send ---------- */
 function txKey(peer,tid){return peer+":"+tid;}
-function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,entries}){
-  const tid=(++tidCounter)>>>0;
+function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,entries,tid:fixedTid}){
+  const tid=fixedTid?(fixedTid>>>0):((++tidCounter)>>>0);
   const t={tid,peer,dir:"out",kind:bench?"bench":astext?"textfile":"file",name,size,mime:mime||"application/octet-stream",
            source,sent:0,ackedSeq:-1,state:"offer",el:null,mt:meter(),label,native:native||null,entries:entries||null};
   transfers.set(txKey(peer,tid),t); renderTx(t);
   send({type:"offer",to:peer,tid,name,size,mime:t.mime,astext:!!astext,bench:!!bench,native:native||null});
-  updTx(t,"Connecting…"); touchPeer(peer);
+  updTx(t,"Waiting for the receiver to accept…"); touchPeer(peer);
+}
+function isDupSend(peer,name,size){
+  const now=performance.now();
+  for(const t of transfers.values())
+    if(t.dir==="out"&&t.peer===peer&&t.name===name&&t.size===size
+       &&(t.state==="offer"||t.state==="sending")&&now-t.mt.t0<3000) return true;
+  return false;
 }
 function sendFile(peer,file){
-  if(!file||!file.size){toast("Empty file skip kiya","r");return;}
+  if(!file||!file.size){toast("Skipped empty file","r");return;}
+  if(isDupSend(peer,file.name,file.size)) return;
   startTransfer(peer,{name:file.name,size:file.size,mime:file.type,source:()=>blobSource(file)});
 }
 const BENCH_MB=50;
@@ -689,14 +1031,59 @@ function sendBench(peer){
 }
 function sendFolder(peer,rootName,list){
   const plan=zipPlan(list);
-  if(!plan.items.length){ toast("Folder khali hai","r"); return; }
+  if(!plan.items.length){ toast("Folder is empty","r"); return; }
+  if(isDupSend(peer,rootName+".zip",plan.total)) return;
   startTransfer(peer,{name:rootName+".zip",size:plan.total,mime:"application/zip",source:()=>zipSource(plan),label:`📁 ${plan.items.length} files`});
   toast(`📁 <b>${esc(rootName)}</b> — ${plan.items.length} files, ${fmtSize(plan.total)} — zipping on the fly`);
 }
 function onAccept(m){
   const t=transfers.get(txKey(m.from,m.tid)); if(!t||t.dir!=="out"||t.state!=="offer") return;
   t.state="sending";
-  if(t.native&&m.tcp&&TAURI) nativeSend(t,m.tcp); else if(t.source) pump(t); else failTx(t,"peer can't receive natively");
+  if(t.native&&m.tcp&&TAURI) nativeSend(t,m.tcp);
+  else if(t.source){ if(t.kind!=="bench"||true){ const e=rtc.get(t.peer); if(!(e&&e.status==="local")) openPipes(t); } pump(t); }
+  else failTx(t,"peer can't receive natively");
+}
+
+/* ---------- parallel cloud pipes (remote transfers) ---------- */
+const N_PIPES=4, PIPE_HIGH=6*1024*1024, PIPE_ACK_EVERY=1024*1024;
+function pipeUrl(name,role){ return "wss://"+SIGNAL_HOST+"/relay/"+name+"?role="+role; }
+function openPipes(t){
+  const names=[]; for(let i=0;i<N_PIPES;i++) names.push(`${myId}_${t.peer}_${t.tid}_${i}`);
+  t.pipes=names.map(n=>{
+    const p={ws:null,ready:false,sent:0,acked:0,dead:false,timer:null};
+    try{
+      const ws=new WebSocket(pipeUrl(n,"a")); ws.binaryType="arraybuffer"; p.ws=ws;
+      ws.onopen=()=>{ const ask=()=>{ if(p.ready||p.dead) return; try{ws.send("hello?")}catch{} p.timer=setTimeout(ask,300); }; ask(); };
+      ws.onmessage=ev=>{ if(typeof ev.data!=="string") return;
+        if(ev.data==="peer-ready"){ p.ready=true; if(t.wake){const w=t.wake;t.wake=null;w();} }
+        else if(ev.data.startsWith("a:")){ p.acked=Math.max(p.acked,+ev.data.slice(2)||0); if(t.wake){const w=t.wake;t.wake=null;w();} } };
+      ws.onclose=ws.onerror=()=>{ p.dead=true; p.ready=false; if(t.wake){const w=t.wake;t.wake=null;w();} };
+    }catch{ p.dead=true; }
+    return p;
+  });
+  send({type:"pipes",to:t.peer,tid:t.tid,names});
+  // pipes that never became ready within 5s are dropped
+  setTimeout(()=>{ for(const p of t.pipes||[]) if(!p.ready){ p.dead=true; try{p.ws&&p.ws.close()}catch{} } },5000);
+}
+function closePipes(t){
+  for(const p of t.pipes||[]){ p.dead=true; clearTimeout(p.timer); try{p.ws&&p.ws.close()}catch{} }
+  for(const ws of t.pipesIn||[]){ try{ws.close()}catch{} }
+  t.pipes=null; t.pipesIn=null;
+}
+function livePipes(t){ return (t.pipes||[]).filter(p=>p.ready&&!p.dead&&p.ws&&p.ws.readyState===1); }
+// receiver joins the sender's pipes
+function onPipes(m){
+  const t=transfers.get(txKey(m.from,m.tid)); if(!t||t.dir!=="in") return;
+  t.pipesIn=[];
+  for(const n of (m.names||[]).slice(0,8)){
+    if(!/^[A-Za-z0-9_-]{8,80}$/.test(n)) continue;
+    try{
+      const ws=new WebSocket(pipeUrl(n,"b")); ws.binaryType="arraybuffer"; let got=0, lastAck=0;
+      ws.onmessage=ev=>{ if(typeof ev.data==="string") return; got+=ev.data.byteLength; handleChunk(ev.data);
+        if(got-lastAck>=PIPE_ACK_EVERY){ lastAck=got; try{ws.send("a:"+got)}catch{} } };
+      t.pipesIn.push(ws);
+    }catch{}
+  }
 }
 function onDecline(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t&&t.dir==="out") failTx(t,"declined"); }
 function onAck(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t){ t.ackedSeq=Math.max(t.ackedSeq,m.seq); if(t.wake){const w=t.wake;t.wake=null;w();} } }
@@ -710,7 +1097,7 @@ function onReceived(m){
     const secs=(performance.now()-t.mt.t0)/1000;
     if(t.kind==="file"||t.kind==="bench"){ setSpeed(t,t.size/Math.max(secs,.001)); updTx(t,`${t.kind==="bench"?"⚡ Result":"Delivered ✓"} ${t.viaTxt||""} · ${secs.toFixed(1)}s`); }
     else updTx(t,"Delivered ✓ — copied on their device");
-    t.el.classList.add("done"); toast(`<b>${esc(t.name)}</b> delivered ✓`,"g");
+    t.el.classList.add("done"); toast(`<b>${esc(t.name)}</b> delivered ✓`,"g"); if(t.kind!=="bench") sfx("done"); closePipes(t);
   }
 }
 function onCancel(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t) failTx(t,"cancelled"); }
@@ -738,29 +1125,47 @@ async function pump(t){
     while(bo<block.byteLength){
       if(t.state!=="sending") return;
       const e=rtc.get(t.peer);
-      const dc=pickDc(e), dcOpen=!!dc;
-      let chunk=CHUNK;
-      if(dcOpen){
-        const mms=(e.pc.sctp&&e.pc.sctp.maxMessageSize)||65536;
-        chunk=Math.max(16384,Math.min(262144,mms-64));
-        if(dc.bufferedAmount>HIGH){ await dcDrain(dc); continue; }
-      } else {
+      // candidate transports: DataChannels (LAN / P2P) + parallel cloud pipes; pick the least loaded
+      const isLocal=!!(e&&e.status==="local");
+      const pAll=t.pipes||[], pAlive=pAll.filter(p=>!p.dead), pReady=livePipes(t);
+      // remote: WebRTC over WAN crawls (~100KB/s) — never queue into it while pipes exist
+      if(!isLocal&&pAll.length&&!pReady.length&&pAlive.length){ await new Promise(r=>{t.wake=r; setTimeout(r,150);}); continue; }
+      const dcs=(!isLocal&&pReady.length)?[]:openDcs(e).filter(d=>d.bufferedAmount<=HIGH);
+      const pipes=pReady.filter(p=>(p.sent-p.acked)<=PIPE_HIGH&&p.ws.bufferedAmount<=2*1024*1024);
+      let best=null, bestLoad=Infinity, kind=null;
+      for(const d of dcs){ if(d.bufferedAmount<bestLoad){bestLoad=d.bufferedAmount;best=d;kind="dc";} }
+      for(const p of pipes){ const l=(p.sent-p.acked)+p.ws.bufferedAmount; if(l<bestLoad){bestLoad=l;best=p;kind="pipe";} }
+      const anyDc=openDcs(e).length>0, anyPipe=livePipes(t).length>0;
+      if(!best){
+        if(anyDc||anyPipe){ // everything is backpressured → wait for any drain
+          await Promise.race([...openDcs(e).map(dcDrain), new Promise(r=>{t.wake=r;}), new Promise(r=>setTimeout(r,120))]);
+          await yieldTask(); // guarantee a real event-loop turn even if a promise above was already resolved
+          continue;
+        }
+        // last resort: main signaling socket relay
         if(!ws||ws.readyState!==1){ failTx(t,"connection lost"); return; }
         if(seq-t.ackedSeq>WINDOW){ await waitAckOrTick(t); continue; }
         if(ws.bufferedAmount>8e6){ await yieldTask(); continue; }
+        kind="ws";
       }
+      let chunk=CHUNK;
+      if(kind==="dc"){ const mms=(e.pc.sctp&&e.pc.sctp.maxMessageSize)||65536; chunk=Math.max(16384,Math.min(262144,mms-64)); }
       const payload=block.subarray(bo,Math.min(bo+chunk,block.byteLength));
-      const frame=buildFrame(dcOpen?myId:t.peer,t.tid,seq,payload);
-      try{ if(dcOpen) dc.send(frame); else ws.send(frame); }
-      catch{ await yieldTask(); continue; }
-      const via=dcOpen?(e.status==="local"?"⚡ LAN direct":"🔗 P2P direct"):"☁ cloud relay";
+      const frame=buildFrame(kind==="ws"?t.peer:myId,t.tid,seq,payload);
+      try{
+        if(kind==="dc") best.send(frame);
+        else if(kind==="pipe"){ best.ws.send(frame); best.sent+=frame.byteLength; }
+        else ws.send(frame);
+      }catch{ await yieldTask(); continue; }
+      const dcOpen=kind==="dc";
+      const via=kind==="dc"?(e.status==="local"?"⚡ LAN direct":"🔗 P2P direct"):kind==="pipe"?(anyDc?"🔗 P2P + ☁ cloud pipes":"☁ cloud pipes ×"+livePipes(t).length):"☁ cloud relay";
       t.viaTxt="via "+via;
       bo+=payload.byteLength; offset+=payload.byteLength; seq++; t.sent=offset;
       const now=performance.now();
       if(now-lastUi>150||offset>=t.size){
         lastUi=now;
         // count only bytes that left the local buffers
-        let buffered=0; if(dcOpen) for(const d of openDcs(e)) buffered+=d.bufferedAmount; else buffered=ws.bufferedAmount;
+        let buffered=0; for(const d of openDcs(e)) buffered+=d.bufferedAmount; for(const p of livePipes(t)) buffered+=(p.sent-p.acked); if(kind==="ws") buffered+=ws.bufferedAmount;
         meterPush(t.mt,Math.max(0,offset-buffered));
         updTx(t,`Sending ${via}… ${fmtSize(offset)} / ${fmtSize(t.size)}`);
         setSpeed(t,meterRate(t.mt));
@@ -805,6 +1210,27 @@ async function onOffer(m){
            chunks:[],got:0,state:"receiving",el:null,fromNick:m.fromNick,mt:meter(),lastUi:0,
            stream:null,next:0,pending:new Map(),seen:new Set()};
   transfers.set(key,t); renderTx(t);
+  if(t.kind!=="bench") sfx("incoming");
+  // local senders (same network) auto-start; remote senders need the receiver's OK
+  const e=rtc.get(m.from), pp=peers.find(x=>x.id===m.from);
+  const isLocal=(e&&e.status==="local")||(pp&&pp.ip&&myMeta.ip&&pp.ip===myMeta.ip);
+  const wasRequested=expectedTids.delete(m.tid);
+  if(t.kind!=="bench"&&!isLocal&&!isTrusted(pp)&&!wasRequested){
+    t.state="ask";
+    updTx(t,"Waiting for your permission…");
+    const ask=document.createElement("div");
+    ask.className="txtacts";
+    ask.innerHTML=`<button class="btn primary sm ok">✓ Accept</button><button class="btn sm tr" style="border-color:rgba(52,211,153,.4);color:var(--green)">🤝 Trust & Accept</button><button class="btn sm no" style="border-color:rgba(248,113,113,.4);color:var(--red)">✕ Deny</button><span style="color:var(--dim);font-size:.75rem">Remote device wants to send this</span>`;
+    t.el.appendChild(ask);
+    toast(`📥 <b>${esc(t.fromNick||funName(t.peer))}</b> (remote) wants to send <b>${esc(t.name)}</b> (${fmtSize(t.size)}) — Accept?`);
+    ask.querySelector(".ok").onclick=async()=>{ ask.remove(); if(t.state!=="ask") return; t.state="receiving"; await acceptOffer(t,m); };
+    ask.querySelector(".tr").onclick=async()=>{ ask.remove(); if(t.state!=="ask") return; setTrust(pp,true); toast(`🤝 <b>${esc(t.fromNick||funName(t.peer))}</b> trusted — future files arrive without asking`,"g"); t.state="receiving"; await acceptOffer(t,m); };
+    ask.querySelector(".no").onclick=()=>{ ask.remove(); if(t.state!=="ask") return; send({type:"decline",to:t.peer,tid:t.tid}); failTx(t,"denied by you"); };
+    return;
+  }
+  await acceptOffer(t,m);
+}
+async function acceptOffer(t,m){
   let acceptExtra={};
   if(t.kind==="bench"){ t.chunks=null; t.label="nothing saved"; }
   else if(t.kind==="file"&&TAURI){
@@ -870,8 +1296,8 @@ function handleChunk(buf){
   if(t.got>=t.size) finishReceive(t);
 }
 async function finishReceive(t){
-  t.state="done";
-  send({type:"received",to:t.peer,tid:t.tid});
+  t.state="done"; if(t.kind!=="bench") sfx("done");
+  send({type:"received",to:t.peer,tid:t.tid}); setTimeout(()=>closePipes(t),1500);
   const secs=(performance.now()-t.mt.t0)/1000;
   setSpeed(t,t.size/Math.max(secs,.001));
   if(t.kind==="bench"){
@@ -887,7 +1313,7 @@ async function finishReceive(t){
     const old=t.el; t.el=null; renderTx(t); old&&old.remove(); t.el.classList.add("done");
     const ok=await tryCopy(text); markCopied(t,ok);
     if(ok) toast(`📋 Big text from <b>${esc(t.fromNick||funName(t.peer))}</b> — <b>auto-copied</b>`,"g");
-    else { pendingCopy=t; toast(`📋 Text aaya — page par click karo, auto-copy ho jayega`); }
+    else { pendingCopy=t; toast(`📋 Text received — click anywhere on the page to auto-copy`); }
     return;
   }
   if(t.disk){
@@ -939,7 +1365,7 @@ async function onText(m){
   const ok=await tryCopy(text);
   markCopied(t,ok);
   if(ok) toast(`📋 Text from <b>${esc(m.fromNick||funName(m.from))}</b> — <b>auto-copied</b> to clipboard`,"g");
-  else { pendingCopy=t; toast(`📋 Text from <b>${esc(m.fromNick||funName(m.from))}</b> aaya — page par click karo, auto-copy ho jayega`); }
+  else { pendingCopy=t; toast(`📋 Text from <b>${esc(m.fromNick||funName(m.from))}</b> — click anywhere on the page to auto-copy`); }
 }
 function markCopied(t,ok){
   if(!t.el) return;
@@ -960,7 +1386,8 @@ function renderTx(t){
   const isTextCard=t.text!=null;
   el.className="tx"+(isTextCard?" text "+t.dir:"");
   if(!isTextCard){
-    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span class="spd"></span></div><div class="st"></div><div class="bar"><i></i></div>`;
+    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="spd"></span><button class="btn sm cx" title="Cancel this transfer on both sides">✕ Cancel</button></span></div><div class="st"></div><div class="bar"><i></i></div>`;
+    el.querySelector(".cx").onclick=()=>cancelTx(t);
   } else {
     const CAP=20000, shown=t.text.length>CAP?t.text.slice(0,CAP):t.text;
     el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📝":"📋"} ${esc(t.name)} <span class="peer">${esc(who)}</span></span></div>
@@ -978,13 +1405,43 @@ function updTx(t,txt){
 }
 function failTx(t,why){
   if(t.state==="done"||t.state==="fail") return;
-  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear();
+  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear(); closePipes(t);
   if(t.stream){ try{t.stream.abort()}catch{} }
   if(t.disk){ diskBySid.delete(t.disk.sid); inv("recv_abort",{sid:t.disk.sid}).catch(()=>{}); }
   if(t.dir==="out"&&t.native&&TAURI) inv("tcp_cancel",{key:txKey(t.peer,t.tid)}).catch(()=>{});
   if(t.el){t.el.classList.add("fail");updTx(t,"Failed — "+why);}
 }
 function failTxByTid(tid,why){ for(const t of transfers.values()) if(t.tid===tid&&t.state!=="done") failTx(t,why); }
+
+/* ---------- mandatory device name (asked once, remembered) ---------- */
+function needName(){ return !(localStorage.getItem("share_nick")||"").trim(); }
+function showNameModal(){
+  const m=document.getElementById("nameModal"), i=document.getElementById("nameInput");
+  m.style.display=""; i.value=localStorage.getItem("share_nick")||""; setTimeout(()=>i.focus(),50);
+  const save=()=>{ const v=i.value.trim(); if(!v){ i.style.borderColor="var(--red)"; i.focus(); return; }
+    localStorage.setItem("share_nick",v); m.style.display="none"; send({type:"nick",nick:v}); if(TAURI) inv("set_setting",{key:"nick",value:v}).catch(()=>{}); renderMe(); };
+  document.getElementById("nameSave").onclick=save;
+  i.onkeydown=e=>{ if(e.key==="Enter") save(); };
+}
+if(needName()) showNameModal();
+document.getElementById("editNick").onclick=showNameModal;
+
+/* ---------- manual refresh: reconnect signaling + fresh peer list ---------- */
+document.getElementById("refreshBtn").onclick=()=>{
+  const b=document.getElementById("refreshBtn"); b.disabled=true; b.textContent="🔄 Refreshing…";
+  for(const id of [...rtc.keys()]) dropRtc(id);
+  peers=[]; renderPeers();
+  try{ ws.onclose=null; ws.close(); }catch{}
+  reconnectDelay=800; connect();
+  setTimeout(()=>{ b.disabled=false; b.textContent="🔄 Refresh"; toast("Refreshed","g"); },1200);
+};
+
+/* ---------- cancel (both sides) ---------- */
+function cancelTx(t){
+  if(t.state==="done"||t.state==="fail") return;
+  send({type:"cancel",to:t.peer,tid:t.tid});
+  failTx(t,"cancelled by you");
+}
 
 /* ================= desktop app (Tauri) integration ================= */
 // A "file" backed by a native path — quacks enough like a File for blobSource/zipSource.
@@ -999,7 +1456,7 @@ async function sendPath(peer,path){
   const bothApps=!!(p.app&&p.app.port);
   if(st.is_dir){
     const list=await inv("list_dir",{path});
-    if(!list.length){ toast(`Folder <b>${esc(st.name)}</b> khali hai`,"r"); return; }
+    if(!list.length){ toast(`Folder <b>${esc(st.name)}</b> is empty`,"r"); return; }
     const total=list.reduce((a,e)=>a+e.size,0);
     if(bothApps){
       startTransfer(peer,{name:st.name+"/",size:total,mime:"inode/directory",native:{entries:list.map(e=>({rel:e.rel,size:e.size})),root:st.name},
@@ -1008,7 +1465,7 @@ async function sendPath(peer,path){
       sendFolder(peer,st.name,list.map(e=>({file:pathFile(e.path,e.rel.split("/").pop(),e.size,e.mtime),path:e.rel})));
     }
   } else {
-    if(!st.size){ toast("Empty file skip kiya","r"); return; }
+    if(!st.size){ toast("Skipped empty file","r"); return; }
     const pf=pathFile(path,st.name,st.size,st.mtime);
     if(bothApps){
       startTransfer(peer,{name:st.name,size:st.size,mime:"application/octet-stream",native:{entries:[{rel:st.name,size:st.size}]},
@@ -1055,7 +1512,7 @@ if(TAURI){
   tauriListen("tauri://drag-leave",clearHi);
   tauriListen("tauri://drag-drop",e=>{ const c=cardAt(e.payload.position); clearHi();
     let target=c?c.id.slice(5):(selectedPeer()||{}).id;
-    if(!target){ toast("Pehle koi device select karo (card par click), phir drop","r"); return; }
+    if(!target){ toast("Select a device first (click its card), then drop","r"); return; }
     for(const p of e.payload.paths||[]) sendPath(target,p); });
 
   // settings modal
@@ -1065,7 +1522,7 @@ if(TAURI){
     try{ appInfo=await inv("get_settings"); }catch{ return; }
     $("sNick").value=localStorage.getItem("share_nick")||appInfo.nick||"";
     $("sDir").textContent=appInfo.download_dir; $("sAuto").checked=!!appInfo.autostart; $("sMin").checked=!!appInfo.start_minimized; $("sTray").checked=!!appInfo.close_to_tray;
-    $("sVer").textContent="AIPoint Share v"+appInfo.version+" · "+appInfo.os;
+    $("sVer").textContent="Dukto v"+appInfo.version+" · "+appInfo.os;
     $("sLan").textContent="LAN: "+(appInfo.ips||[]).join(", ")+" · port "+appInfo.port;
     $("settingsModal").style.display="";
   }
@@ -1082,6 +1539,20 @@ if(TAURI){
   if(!localStorage.getItem("share_app_seen")){ localStorage.setItem("share_app_seen","1"); setTimeout(openSettings,900); }
 }
 
+/* ---------- auto-update: reload when a new build is deployed and nothing is transferring ---------- */
+async function checkBuild(){
+  try{
+    const r=await fetch((SIGNAL_HOST===location.host?"":"https://"+SIGNAL_HOST)+"/build.txt?_="+Date.now(),{cache:"no-store"});
+    const v=(await r.text()).trim();
+    if(!v||v===BUILD||TAURI) return;
+    const busy=[...transfers.values()].some(t=>t.state==="sending"||t.state==="receiving"||t.state==="offer");
+    if(busy) return;
+    toast("Updating to the latest version…"); setTimeout(()=>location.reload(),800);
+  }catch{}
+}
+setInterval(checkBuild,30000); setTimeout(checkBuild,5000);
+
+renderCommon(); renderSaved();
 connect();
 </script>
 </body>

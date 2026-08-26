@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AIPoint Share",
+  "productName": "Dukto",
   "version": "1.0.0",
   "identifier": "online.aipoint.share",
   "build": {
@@ -11,7 +11,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "AIPoint Share",
+        "title": "Dukto",
         "width": 1120,
         "height": 780,
         "minWidth": 720,
@@ -37,7 +37,7 @@
       "icons/icon.ico"
     ],
     "publisher": "Soubick Das",
-    "shortDescription": "AIPoint Share — device to device file transfer",
+    "shortDescription": "Dukto — device to device file transfer",
     "longDescription": "Open mesh file sharing between your devices. Same UI as share.aipoint.online plus a LAN fast path.",
     "windows": {
       "nsis": {
