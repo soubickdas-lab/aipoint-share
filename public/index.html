@@ -224,7 +224,7 @@ footer a{color:var(--dim)}
 [data-theme="light"]{
   --bg:#dde3ee; --bg2:#d1d9e8; --card:#eff2f8f0; --card2:#f4f6faf5; --card3:#dfe6f3;
   --border:#c3cde0; --text:#222d4a; --dim:#4e5a77; --dim2:#8791ab;
-  --accent:#3d63d6; --accent2:#7157cf; --green:#0e8f65; --red:#c94a4f; --amber:#a37c10;
+  --accent:#3557c9; --accent2:#6a4fc4; --green:#0c7f5a; --red:#bd3f45; --amber:#8f6c0c;
   --shadow:0 8px 22px rgba(30,40,66,.10); --shadow-lg:0 16px 40px rgba(30,40,66,.15);
   --glow-g:rgba(14,143,101,.4); --glow-r:rgba(201,74,79,.35);
 }
@@ -380,7 +380,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826110304";
+const BUILD="20260826110921";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
