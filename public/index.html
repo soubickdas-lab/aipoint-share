@@ -163,6 +163,8 @@ body.pagedrag .peer{border-color:rgba(52,211,153,.45)}
 .starb{background:var(--bg2);border:1px solid var(--border);border-radius:99px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:.82rem;color:var(--dim2);transition:.15s;padding:0;flex:none}
 .starb:hover{border-color:var(--amber);color:var(--amber)}
 .starb.on{color:var(--amber);border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.12)}
+.peer.off{opacity:.8;border-style:dashed}
+.peer.off:hover{transform:none}
 .peer{transition:.18s}
 .peer:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.35)}
 h2.sec{font-size:.84rem;color:var(--dim)}
@@ -350,7 +352,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826090533";
+const BUILD="20260826092613";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
@@ -718,7 +720,7 @@ function renderPeers(){
     { const sb=card.querySelector(".starb"), on=!!savedPcs[p.did]; sb.textContent=on?"⭐":"☆"; sb.classList.toggle("on",on); }
     updBadge(p.id);
   }
-  for(const el of [...grid.children,...sgrid.children]) if(!have.has(el.id.slice(5))) el.remove();
+  for(const el of [...grid.children,...sgrid.children]) if(el.id.startsWith("peer-")&&!have.has(el.id.slice(5))) el.remove();
   renderTargetBar();
   renderSaved(); renderCommon(); flushQueues();
   if(collapsed.dev) renderMini();
@@ -765,6 +767,8 @@ document.getElementById("actToggle").onclick=()=>toggleCollapse("act");
 /* ---------- common share: password-gated shared box; bytes stay with the owner ---------- */
 let commonNotes=[];
 let hiddenNotes={}; try{ hiddenNotes=JSON.parse(localStorage.getItem("share_note_hide")||"{}")||{}; }catch{}
+let hiddenFiles={}; try{ hiddenFiles=JSON.parse(localStorage.getItem("share_cfile_hide")||"{}")||{}; }catch{}
+function hideCFile(cid){ hiddenFiles[cid]=Date.now(); localStorage.setItem("share_cfile_hide",JSON.stringify(hiddenFiles)); renderCommon(); }
 function hideNote(nid){ hiddenNotes[nid]=Date.now(); localStorage.setItem("share_note_hide",JSON.stringify(hiddenNotes)); renderCommon(); }
 const COMMON_PASS="1234";
 let myCommon=[], commonSeq=0;
@@ -816,9 +820,10 @@ function renderCommon(){
   }
   const avail=new Set();
   for(const pr of peers) for(const c of (pr.common||[])){
+    if(hiddenFiles[c.cid]) continue;
     const key=pr.id+"|"+c.cid; avail.add(key); commonIndex[key]={owner:pr.id,cid:c.cid,name:c.name};
     const r=document.createElement("div"); r.className="crow"+(commonSel.has(key)?" sel":"")+(locked?" locked":"");
-    r.innerHTML=`<span class="ck">✓</span><span class="cico">📄</span><div class="cinfo"><div class="cnm">${esc(c.name)}</div><div class="cmeta">${fmtSize(c.size)} · from <b>${esc(displayName(pr))}</b></div></div><button class="btn primary sm dl">⬇</button>`;
+    r.innerHTML=`<span class="ck">✓</span><span class="cico">📄</span><div class="cinfo"><div class="cnm">${esc(c.name)}</div><div class="cmeta">${fmtSize(c.size)} · from <b>${esc(displayName(pr))}</b></div></div><button class="btn primary sm dl">⬇</button><button class="btn sm hxf" title="Hide for me" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕</button>`;
     r.onclick=e=>{
       if(e.target.classList.contains("dl")) return;
       if(locked){ lockNudge(); return; }
@@ -826,8 +831,12 @@ function renderCommon(){
       renderCommon();
     };
     r.querySelector(".dl").onclick=()=>{ if(locked){ lockNudge(); return; } requestCommon(pr.id,c.cid,c.name); };
+    r.querySelector(".hxf").onclick=e=>{ e.stopPropagation(); hideCFile(c.cid); };
     box.appendChild(r);
   }
+  { const live=new Set(); for(const pr of peers) for(const c of (pr.common||[])) live.add(c.cid);
+    const keep={}; for(const k of Object.keys(hiddenFiles)) if(live.has(k)) keep[k]=hiddenFiles[k];
+    hiddenFiles=keep; localStorage.setItem("share_cfile_hide",JSON.stringify(hiddenFiles)); }
   for(const k of [...commonSel]) if(!avail.has(k)) commonSel.delete(k);
   document.getElementById("commonActs").style.display=commonSel.size?"":"none";
   document.getElementById("dlSelN").textContent=commonSel.size;
@@ -913,27 +922,26 @@ function renderSaved(){
   { const on=dids.filter(d=>peers.some(p=>p.did===d)).length;
     const el=document.getElementById("savedCount"); if(el) el.textContent=dids.length?on+"/"+dids.length+" online":"0"; }
   const list=document.getElementById("savedList"); list.innerHTML="";
-  if(!dids.length){ list.innerHTML='<div style="color:var(--dim2);font-size:.75rem;text-align:center;padding:8px 4px;line-height:1.5">No saved PCs yet.<br>Click <b>☆</b> on a device card — it will stay here forever.</div>'; return; }
+  const sgrid=document.getElementById("savedGrid");
+  for(const el of [...sgrid.querySelectorAll('[id^="soff-"]')]) el.remove();
+  if(!dids.length){ list.innerHTML='<div style="color:var(--dim2);font-size:.75rem;text-align:center;padding:8px 4px;line-height:1.5">No saved PCs yet — click <b>☆</b> on a device card and it will stay here forever.</div>'; return; }
   for(const did of dids){
-    const pr=null; // online saved PCs render as full cards in savedGrid
-    { const on=peers.find(x=>x.did===did); if(on){ savedPcs[did].nick=displayName(on); continue; } }
+    const on=peers.find(x=>x.did===did);
+    if(on){ savedPcs[did].nick=displayName(on); continue; } // online saved = full live card already in savedGrid
     const info=savedPcs[did], q=(sendQueue[did]||[]);
-    const row=document.createElement("div");
-    row.className="srow"+(pr?"":" off");
-    row.innerHTML=`<span class="sdot ${pr?"g":"r"}"></span>
-      <div class="sinfo"><div class="snm">${esc(info.nick)}</div>
-      <div class="smeta">${pr?"🟢 Online — drops send instantly":"🔴 Offline — drop files to queue"}${q.length?` · <b>${q.length} queued</b>`:""} ${info.os?"· "+esc(info.os):""}</div></div>
-      ${q.length?'<button class="btn sm cq" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕ queue</button>':""}
-      <button class="btn sm un">Remove</button>`;
-    if(row.querySelector(".cq")) row.querySelector(".cq").onclick=()=>{ delete sendQueue[did]; renderSaved(); };
-    row.querySelector(".un").onclick=()=>{ delete savedPcs[did]; delete sendQueue[did]; saveSaved(); renderPeers(); };
-    row.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();row.classList.add("drag");});
-    row.addEventListener("dragleave",()=>row.classList.remove("drag"));
-    row.addEventListener("drop",e=>{
-      e.preventDefault();e.stopPropagation();row.classList.remove("drag");
-      if(pr) handleDrop(pr.id,e.dataTransfer); else queueDrop(did,e.dataTransfer);
-    });
-    list.appendChild(row);
+    const card=document.createElement("div"); card.className="peer off"; card.id="soff-"+did;
+    card.innerHTML=`
+      <div class="corner"><span class="netb" style="color:var(--red);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)">🔴 Offline</span></div>
+      <div class="top"><div class="pavatar">${info.os==="macOS"?"🖥️":"💻"}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)}</div><div class="pmeta">will auto-send when it returns</div></div></div>
+      <div class="pinfo"><span>💻 <b>${esc(info.os||"?")}</b></span><span>${q.length?("📮 <b>"+q.length+" queued</b>"):"queue empty"}</span></div>
+      <div class="phint">📎 Drop files/folders here — sends the moment it comes online</div>
+      <div class="trow" style="justify-content:space-between">${q.length?'<button class="btn sm cq" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕ Clear queue</button>':"<span></span>"}<button class="btn sm un">Remove</button></div>`;
+    if(card.querySelector(".cq")) card.querySelector(".cq").onclick=()=>{ delete sendQueue[did]; renderSaved(); };
+    card.querySelector(".un").onclick=()=>{ delete savedPcs[did]; delete sendQueue[did]; saveSaved(); renderPeers(); };
+    card.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();card.classList.add("drag");});
+    card.addEventListener("dragleave",()=>card.classList.remove("drag"));
+    card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");queueDrop(did,e.dataTransfer);});
+    sgrid.appendChild(card);
   }
 }
 
@@ -1556,7 +1564,18 @@ function showNameModal(){
   document.getElementById("nameSave").onclick=save;
   i.onkeydown=e=>{ if(e.key==="Enter") save(); };
 }
-if(needName()) showNameModal();
+(async function initName(){
+  if(TAURI){
+    try{
+      appInfo=await inv("get_settings");
+      if(appInfo&&appInfo.nick&&!(localStorage.getItem("share_nick")||"").trim()){
+        localStorage.setItem("share_nick",appInfo.nick);
+        renderMe(); if(ws&&ws.readyState===1) sendHello();
+      }
+    }catch{}
+  }
+  if(needName()) showNameModal();
+})();
 document.getElementById("editNick").onclick=showNameModal;
 
 /* ---------- manual refresh: reconnect signaling + fresh peer list ---------- */
@@ -1715,8 +1734,8 @@ async function checkBuild(){
   try{
     const r=await fetch((SIGNAL_HOST===location.host?"":"https://"+SIGNAL_HOST)+"/build.txt?_="+Date.now(),{cache:"no-store"});
     const v=(await r.text()).trim();
-    const bundled=location.protocol!=="http:"&&location.protocol!=="https:"; // old bundled builds can't benefit from reload
-    if(!v||v===BUILD||bundled) return;
+    const bundled=location.protocol!=="http:"&&location.protocol!=="https:";
+    if(!v||v===BUILD||(bundled&&!window.__DUKTO_LIVE)) return;
     const busy=[...transfers.values()].some(t=>t.state==="sending"||t.state==="receiving"||t.state==="offer");
     if(busy) return;
     toast("Updating to the latest version…"); setTimeout(()=>location.reload(),800);

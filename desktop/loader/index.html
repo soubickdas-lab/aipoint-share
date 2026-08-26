@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Dukto</title>
+<style>html,body{background:#070b14;color:#93a0b8;font-family:system-ui,sans-serif;height:100%;margin:0;display:flex;align-items:center;justify-content:center;font-size:15px}</style>
+</head><body><div id="m">⚡ Loading Dukto…</div>
+<script>
+// Bundled loader: fetches the live UI from share.aipoint.online and runs it in
+// this (bundled) origin, so window.__TAURI__ keeps working and the UI is always
+// the latest deployed version — no app update needed for UI changes.
+window.__DUKTO_LIVE = 1;
+(async () => {
+  const m = document.getElementById("m");
+  for (let i = 0; i < 9999; i++) {
+    try {
+      const r = await fetch("https://share.aipoint.online/index.html?_=" + Date.now(), { cache: "no-store" });
+      if (r.ok) {
+        let h = await r.text();
+        h = h.replace(/<head>/i, '<head><base href="https://share.aipoint.online/">');
+        document.open(); document.write(h); document.close();
+        return;
+      }
+    } catch (e) {}
+    m.textContent = "📡 Waiting for internet… (retry " + (i + 1) + ")";
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+})();
+</script></body></html>

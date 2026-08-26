@@ -56,6 +56,8 @@ export class ShareRoom {
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment(meta);
     server.send(JSON.stringify({ type: "welcome", ...meta }));
+    // heartbeat alarm keeps the roster fresh even when no one sends anything
+    if ((await this.ctx.storage.getAlarm()) == null) await this.ctx.storage.setAlarm(Date.now() + 30000);
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -185,6 +187,13 @@ export class ShareRoom {
       return;
     }
     this.safeSend(target.ws, JSON.stringify(msg));
+  }
+
+  async alarm() {
+    if (this.ctx.getWebSockets().length) {
+      this.broadcast(); // sockets() inside prunes dead connections → leavers vanish within ~30s
+      await this.ctx.storage.setAlarm(Date.now() + 30000);
+    }
   }
 
   async webSocketClose() { this.broadcast(); }
