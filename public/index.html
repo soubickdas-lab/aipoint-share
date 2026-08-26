@@ -380,7 +380,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826113831";
+const BUILD="20260826115339";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -395,7 +395,11 @@ const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
 let appInfo=null; // {version, port, ips, download_dir, ...}
 const SIGNAL_HOST=(location.protocol==="https:"||location.protocol==="http:")&&!/localhost|127\.0\.0\.1|tauri/.test(location.hostname)?location.host:"dukto.aipoint.online";
-if(TAURI) document.documentElement.classList.add("tauri");
+if(TAURI){
+  document.documentElement.classList.add("tauri");
+  // reveal Settings immediately — never let later failures hide it
+  try{ const sb=document.getElementById("settingsBtn"); if(sb) sb.style.display=""; }catch{}
+}
 
 let myDid=localStorage.getItem("share_did");
 if(!myDid){
@@ -1740,7 +1744,7 @@ async function nativeSend(t,tcp){
     } else failTx(t,msg);
   }
 }
-if(TAURI){
+if(TAURI) try{
   // progress events from Rust
   tauriListen("tx-progress",e=>{ const {key,sent}=e.payload; const t=transfers.get(key); if(!t||t.state!=="sending") return;
     t.sent=sent; meterPush(t.mt,sent); updTx(t,`Sending ⚡ LAN TCP… ${fmtSize(sent)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt)); });
@@ -1856,7 +1860,7 @@ if(TAURI){
 
   // first run: open settings once so the user sees autostart + folder
   if(!localStorage.getItem("share_app_seen")){ localStorage.setItem("share_app_seen","1"); setTimeout(openSettings,900); }
-}
+}catch(err){ console.error("desktop init failed",err); toast("Desktop features partly unavailable: "+esc(String(err)),"r"); }
 
 /* ---------- auto-update: reload when a new build is deployed and nothing is transferring ---------- */
 async function checkBuild(){
