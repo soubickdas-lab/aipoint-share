@@ -383,7 +383,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826123757";
+const BUILD="20260826130843";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -543,7 +543,7 @@ async function loadTurn(){
   }catch{}
 }
 const turnReady=Promise.race([loadTurn(),new Promise(r=>setTimeout(r,2500))]); setInterval(loadTurn,5*3600*1000);
-const N_PC=3, CH_PER_PC=2;
+const N_PC=3, CH_PER_PC=4;
 function ensureRtc(peerId, initiator){
   let e=rtc.get(peerId);
   if(e) return e;
@@ -572,7 +572,7 @@ function makeSlot(peerId,e,s,initiator){
 }
 function setupDc(peerId,e,dc){
   dc.binaryType="arraybuffer";
-  dc.bufferedAmountLowThreshold=1024*1024;
+  dc.bufferedAmountLowThreshold=4*1024*1024;
   e.dcs.push(dc);
   dc.onopen=()=>classify(peerId,e);
   dc.onmessage=ev=>{ if(typeof ev.data!=="string") handleChunk(ev.data); };
@@ -662,7 +662,9 @@ async function classify(peerId,e){
 }
 // ICE can settle on a better pair after connecting — re-check for a while
 setInterval(()=>{
-  for(const [id,e] of rtc) if(e&&e.status&&e.status!=="connecting") classify(id,e);
+  const busy=[...transfers.values()].some(t=>t.state==="sending"||t.state==="receiving");
+  if(busy) return;                       // never poll stats mid-transfer
+  for(const [id,e] of rtc) if(e&&e.status==="direct") classify(id,e); // only try to upgrade Remote→Local
 },12000);
 async function handleRtc(m){
   if(m.kind==="want"){ if(myId<m.from&&!rtc.has(m.from)) ensureRtc(m.from,true); return; }
@@ -1496,7 +1498,7 @@ function dcDrain(dc){
   });
 }
 async function pump(t){
-  const HIGH=4*1024*1024; // per-channel high water
+  const HIGH=(rtc.get(t.peer)||{}).status==="local"?12*1024*1024:4*1024*1024; // deeper queue on a LAN
   let seq=0, offset=0, lastUi=0;
   for await(const block of t.source()){
     if(t.state!=="sending") return;
@@ -1506,6 +1508,7 @@ async function pump(t){
       const e=rtc.get(t.peer);
       // candidate transports: DataChannels (LAN / P2P) + parallel cloud pipes; pick the least loaded
       const isLocal=!!(e&&e.status==="local")||peerIsLan(t.peer);
+      if(isLocal&&t.pipes&&t.pipes.length){ closePipes(t); } // LAN: cloud pipes only slow us down
       const pAll=t.pipes||[], pAlive=pAll.filter(p=>!p.dead), pReady=livePipes(t);
       // remote: WebRTC over WAN crawls (~100KB/s) — never queue into it while pipes exist
       if(!isLocal&&pAll.length&&!pReady.length&&pAlive.length){ await new Promise(r=>{t.wake=r; setTimeout(r,150);}); continue; }
@@ -1543,6 +1546,7 @@ async function pump(t){
       const now=performance.now();
       if(now-lastUi>150||offset>=t.size){
         lastUi=now;
+        if(t.el&&t.viaChip!==via){ t.viaChip=via; const el=t.el.querySelector(".fn .peer"); if(el&&!/via /.test(el.textContent)) el.textContent+=" · "+via; }
         // count only bytes that left the local buffers
         let buffered=0; for(const d of openDcs(e)) buffered+=d.bufferedAmount; for(const p of livePipes(t)) buffered+=(p.sent-p.acked); if(kind==="ws") buffered+=ws.bufferedAmount;
         meterPush(t.mt,Math.max(0,offset-buffered));
@@ -1877,9 +1881,10 @@ async function sendPath(peer,path){
 async function nativeSend(t,tcp){
   const key=txKey(t.peer,t.tid);
   t.viaTxt="via ⚡ LAN TCP";
+  { const el=t.el&&t.el.querySelector(".fn .peer"); if(el&&!/LAN TCP/.test(el.textContent)) el.textContent+=" · ⚡ LAN TCP"; }
   updTx(t,"Connecting on LAN…");
   try{
-    await inv("tcp_send",{key,hosts:tcp.ips||[],port:tcp.port,token:tcp.token,entries:t.entries,streams:4});
+    await inv("tcp_send",{key,hosts:tcp.ips||[],port:tcp.port,token:tcp.token,entries:t.entries,streams:6});
     t.sent=t.size; meterPush(t.mt,t.size); updTx(t,"Finishing…");
   }catch(err){
     const msg=String(err);
