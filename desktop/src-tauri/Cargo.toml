@@ -1,6 +1,6 @@
 [package]
 name = "aipoint-share"
-version = "1.1.2"
+version = "1.1.3"
 description = "AIPoint Share — device-to-device file transfer"
 authors = ["Soubick Das"]
 edition = "2021"
@@ -17,6 +17,7 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"

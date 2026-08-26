@@ -14,7 +14,9 @@
     "dialog:default",
     "opener:default",
     "updater:default",
-    "process:default"
+    "process:default",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text"
   ],
   "remote": {
     "urls": [

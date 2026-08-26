@@ -380,7 +380,16 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826111639";
+const BUILD="20260826113831";
+// Offscreen textarea: the desktop webview is not a secure context, so
+// navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
+// This element gives us both a copy fallback and a place for pastes to land.
+const clipHelper=document.createElement("textarea");
+clipHelper.setAttribute("aria-hidden","true"); clipHelper.tabIndex=-1;
+Object.assign(clipHelper.style,{position:"fixed",top:"0",left:"-9999px",width:"10px",height:"10px",opacity:"0"});
+document.addEventListener("DOMContentLoaded",()=>document.body.appendChild(clipHelper));
+if(document.body) document.body.appendChild(clipHelper);
+
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
@@ -1047,15 +1056,53 @@ document.addEventListener("drop",e=>{
 });
 
 /* ---------- global paste → target device ---------- */
+let pasteHandled=false;
+function pasteInto(txt,files){
+  const t=targetPeer();
+  if(!t){ toast("Select a device first (click its card), then press Ctrl+V","r"); return; }
+  if(files&&files.length){
+    files.forEach((f,i)=>sendFile(t.p.id,f.name?f:new File([f],"pasted-"+(i+1)+"."+((f.type||"").split("/")[1]||"bin"),{type:f.type})));
+    return;
+  }
+  if(txt&&txt.trim()) sendText(t.p.id,txt);
+}
+function typingInField(el){
+  const tag=(el&&el.tagName||"").toLowerCase();
+  return (tag==="textarea"&&el!==clipHelper)||tag==="input"||(el&&el.isContentEditable);
+}
+// keydown fires before paste: park focus in the helper so the OS paste lands
+// somewhere we can read, even when clipboardData is blocked (desktop app).
+document.addEventListener("keydown",e=>{
+  if(!(e.ctrlKey||e.metaKey)) return;
+  if(e.key!=="v"&&e.key!=="V") return;
+  if(typingInField(e.target)) return;
+  pasteHandled=false;
+  // desktop app: read the clipboard natively (webview gives no clipboardData)
+  try{ const cm=window.__TAURI__&&window.__TAURI__.clipboardManager;
+    if(cm&&cm.readText){ cm.readText().then(txt=>{ if(!pasteHandled&&txt&&txt.trim()){ pasteHandled=true; clipHelper.value=""; clipHelper.blur(); pasteInto(txt,null); } }).catch(()=>{}); }
+  }catch{}
+  clipHelper.value=""; clipHelper.focus();
+  setTimeout(()=>{
+    const v=clipHelper.value; clipHelper.value=""; clipHelper.blur();
+    if(pasteHandled||!v.trim()) return;
+    pasteHandled=true; pasteInto(v,null);
+  },150);
+},true);
+clipHelper.addEventListener("paste",e=>{
+  const cd=e.clipboardData;
+  const files=cd?[...(cd.files||[])]:[];
+  if(files.length){ e.preventDefault(); pasteHandled=true; clipHelper.blur(); pasteInto(null,files); return; }
+  const txt=cd?cd.getData("text/plain"):"";
+  if(txt&&txt.trim()){ e.preventDefault(); pasteHandled=true; clipHelper.value=""; clipHelper.blur(); pasteInto(txt,null); }
+  // otherwise let it land in the textarea; the keydown timer reads it
+});
 document.addEventListener("paste",e=>{
-  const tag=(e.target&&e.target.tagName||"").toLowerCase();
-  if(tag==="textarea"||tag==="input") return;
-  const t=targetPeer(); if(!t){ toast("Select a device first (click its card), then press Ctrl+V","r"); return; }
+  if(e.target===clipHelper||typingInField(e.target)) return;
   const cd=e.clipboardData; if(!cd) return;
   const files=[...(cd.files||[])];
-  if(files.length){ e.preventDefault(); files.forEach((f,i)=>sendFile(t.p.id,f.name?f:new File([f],"pasted-"+(i+1)+"."+(f.type.split("/")[1]||"bin"),{type:f.type}))); return; }
+  if(files.length){ e.preventDefault(); pasteHandled=true; pasteInto(null,files); return; }
   const txt=cd.getData("text/plain");
-  if(txt&&txt.trim()){ e.preventDefault(); sendText(t.p.id,txt); }
+  if(txt&&txt.trim()){ e.preventDefault(); pasteHandled=true; pasteInto(txt,null); }
 });
 document.getElementById("clearAct").onclick=()=>{
   for(const [k,t] of transfers) if(t.state==="done"||t.state==="fail"){ t.el&&t.el.remove(); transfers.delete(k); }
@@ -1532,7 +1579,17 @@ function sendText(peer,text){
 }
 let pendingCopy=null;
 async function tryCopy(text){
-  try{ await navigator.clipboard.writeText(text); return true; }catch{ return false; }
+  // desktop app: native clipboard works without a user gesture
+  try{ const cm=window.__TAURI__&&window.__TAURI__.clipboardManager; if(cm&&cm.writeText){ await cm.writeText(text); return true; } }catch{}
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(text); return true; } }catch{}
+  try{
+    const active=document.activeElement;
+    clipHelper.value=text; clipHelper.focus(); clipHelper.select(); clipHelper.setSelectionRange(0,text.length);
+    const ok=document.execCommand("copy");
+    clipHelper.value=""; clipHelper.blur();
+    if(active&&active.focus) try{ active.focus(); }catch{}
+    return !!ok;
+  }catch{ return false; }
 }
 async function onText(m){
   const key=txKey(m.from,m.tid); if(transfers.has(key)) return;
