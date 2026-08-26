@@ -22,6 +22,18 @@ export class ShareRoom {
     this.env = env;
     // Keepalive answered without waking the DO.
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+    // Common Share text notes live in DO storage (survive everyone going offline), max 24h.
+    this.notes = null;
+    this.ctx.blockConcurrencyWhile(async () => {
+      this.notes = (await this.ctx.storage.get("notes")) || [];
+    });
+  }
+
+  pruneNotes() {
+    const cut = Date.now() - 24 * 3600 * 1000;
+    const before = (this.notes || []).length;
+    this.notes = (this.notes || []).filter((n) => n.ts > cut);
+    if (this.notes.length !== before) this.ctx.storage.put("notes", this.notes);
   }
 
   async fetch(request) {
@@ -88,7 +100,8 @@ export class ShareRoom {
       id: s.m.id, nick: s.m.nick, ua: s.m.ua, ip: s.m.ip,
       city: s.m.city, country: s.m.country, joined: s.m.joined, did: s.m.did, app: s.m.app || null, trusts: s.m.trusts || [], common: s.m.common || [],
     }));
-    const msg = JSON.stringify({ type: "peers", peers: peerList });
+    this.pruneNotes();
+    const msg = JSON.stringify({ type: "peers", peers: peerList, notes: this.notes });
     for (const { ws } of all) this.safeSend(ws, msg);
   }
 
@@ -141,6 +154,16 @@ export class ShareRoom {
           };
         } else m.app = null;
         ws.serializeAttachment(m);
+        this.broadcast();
+        return;
+      }
+      case "note": {
+        const text = String(msg.text || "").slice(0, 32768);
+        if (!text.trim()) return;
+        this.pruneNotes();
+        this.notes.push({ nid: genId(), text, by: m.nick || "?", ts: Date.now() });
+        if (this.notes.length > 50) this.notes = this.notes.slice(-50);
+        await this.ctx.storage.put("notes", this.notes);
         this.broadcast();
         return;
       }

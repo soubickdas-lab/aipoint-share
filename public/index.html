@@ -119,6 +119,19 @@ body.pagedrag .peer{border-color:rgba(52,211,153,.45)}
 .crow .ck{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--dim2);flex:none;display:flex;align-items:center;justify-content:center;font-size:.62rem;color:transparent}
 .crow.sel .ck{background:var(--accent);border-color:var(--accent);color:#fff}
 .crow.locked .ck{opacity:.4}
+.chead{cursor:pointer;user-select:none}
+.chev{display:inline-block;width:14px;color:var(--dim2);font-size:.8em;transition:.15s}
+.cnt{font-size:.66rem;font-weight:700;color:var(--accent);background:rgba(91,140,255,.13);border:1px solid rgba(91,140,255,.3);border-radius:99px;padding:1px 8px;vertical-align:middle}
+.minirow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.mchip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 13px;font-size:.8rem;font-weight:650;cursor:pointer;transition:.15s}
+.mchip:hover{border-color:var(--dim2);transform:translateY(-1px)}
+.mchip.sel{border-color:var(--accent);background:rgba(91,140,255,.1);box-shadow:0 0 0 1px rgba(91,140,255,.35)}
+.ncompose{display:flex;gap:7px;margin-top:10px;align-items:stretch}
+.ncompose textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);font:inherit;font-size:.8rem;padding:8px 10px;resize:vertical;min-height:40px;max-height:160px;outline:none}
+.ncompose textarea:focus{border-color:var(--accent)}
+.nrow{cursor:default}
+.nrow .ntxt{white-space:pre-wrap;word-break:break-word;font-size:.78rem;color:var(--text);max-height:52px;overflow:hidden;cursor:pointer;font-family:Consolas,monospace;line-height:1.4}
+.nrow.open .ntxt{max-height:none}
 .panel{background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:18px}
 .phead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .ptitle{font-weight:800;font-size:.95rem;letter-spacing:-.01em}
@@ -205,6 +218,7 @@ footer a{color:var(--dim)}
       <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
       <button class="btn sm" id="refreshBtn" title="Reconnect &amp; refresh device list">🔄 Refresh</button>
       <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
+      <button class="btn sm" id="updBtn" style="display:none;border-color:rgba(52,211,153,.5);color:var(--green)">⬆ Update available</button>
       <button class="btn sm" id="settingsBtn" style="display:none">⚙️ Settings</button>
     </div>
   </header>
@@ -228,6 +242,7 @@ footer a{color:var(--dim)}
       <label class="mrow chk"><input type="checkbox" id="sAuto"><span><b>Start automatically when computer starts</b><br><small>Runs in the tray at login so files can arrive any time</small></span></label>
       <label class="mrow chk"><input type="checkbox" id="sMin"><span><b>Start minimized to tray</b></span></label>
       <label class="mrow chk"><input type="checkbox" id="sTray"><span><b>Keep running in tray when window is closed</b></span></label>
+      <div class="mrow"><span>App updates</span><button class="btn sm" id="sCheckUpd">🔄 Check for updates</button><span id="sUpdSt" style="color:var(--dim2);font-size:.72rem"></span></div>
       <div class="mfoot"><span id="sVer"></span><span id="sLan"></span></div>
     </div>
   </div>
@@ -235,9 +250,11 @@ footer a{color:var(--dim)}
   <div class="cols">
   <aside class="colL">
     <div id="savedBox" class="panel">
-      <div class="phead"><span class="ptitle">⭐ Saved PCs</span></div>
+      <div class="phead chead" id="savedHead"><span class="ptitle"><span class="chev" id="savedChev">▾</span> ⭐ Saved PCs <span class="cnt" id="savedCount">0</span></span></div>
+      <div id="savedBody">
       <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Always here, online or offline · drop on an offline PC to queue — auto-sends when it returns</div>
       <div id="savedList"></div>
+      </div>
     </div>
   </aside>
   <main class="colC">
@@ -253,17 +270,21 @@ footer a{color:var(--dim)}
     <div class="trayhead"><span>📦 Staged files — <b id="trayCount">0</b> <span class="hint">click to select · drag a chip onto a device to send (selected ones go together)</span></span><button class="btn sm" id="trayClear">Clear all</button></div>
     <div class="chips" id="trayChips"></div>
   </div>
-  <h2 class="sec">🟢 Other Online Devices — <span id="peerCount">0</span>&nbsp;<span class="hint">drag files/folders onto a device · click a card to select it</span></h2>
-  <div class="grid" id="peerGrid"></div>
-  <div class="empty" id="noPeers">No other devices online right now.<br>Open this site on another device or phone — its card will appear here.</div>
+  <h2 class="sec chead" id="devHead"><span><span class="chev" id="devChev">▾</span> 🟢 Online Devices — <span id="peerCount">0</span></span>&nbsp;<span class="hint">drag files/folders onto a device · click a card to select it</span></h2>
+  <div id="devMini" class="minirow" style="display:none"></div>
+  <div id="devBody">
+    <div class="grid" id="peerGrid"></div>
+    <div class="empty" id="noPeers">No other devices online right now.<br>Open this site on another device or phone — its card will appear here.</div>
+  </div>
 
-  <h2 class="sec" id="txHead" style="display:none"><span>Activity</span><button class="btn sm" id="clearAct">Clear</button></h2>
+  <h2 class="sec chead" id="txHead" style="display:none"><span id="actToggle"><span class="chev" id="actChev">▾</span> Activity</span><button class="btn sm" id="clearAct">Clear</button></h2>
   <div id="txList"></div>
   </main>
   <aside class="colR">
     <div id="commonBox" class="panel">
-      <div class="phead"><span class="ptitle">🗃 Common Share</span><button class="btn sm" id="commonLockBtn" style="display:none">🔒 Lock</button></div>
-      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Everyone can drop &amp; see the list · <b>unlock to download</b> · a file vanishes when its owner goes offline</div>
+      <div class="phead chead" id="commonHead"><span class="ptitle"><span class="chev" id="commonChev">▾</span> 🗃 Common Share <span class="cnt" id="commonCount">0</span></span><button class="btn sm" id="commonLockBtn" style="display:none">🔒 Lock</button></div>
+      <div id="commonBody">
+      <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Everyone can drop &amp; see the list · <b>unlock to download / copy</b> · files vanish with their owner · notes auto-clear in 24h</div>
       <div id="commonLocked" class="lockrow">
         <input id="commonPass" type="password" placeholder="🔒 Password to download" maxlength="16" autocomplete="off" style="flex:1;min-width:120px">
         <button class="btn primary sm" id="commonUnlock">Unlock</button>
@@ -271,6 +292,8 @@ footer a{color:var(--dim)}
       <div class="cdrop" id="commonDrop" style="margin-top:10px">📥 <b>Drop files here</b> to share with everyone<br><span class="pickc" style="color:var(--accent);cursor:pointer;font-size:.76rem">or choose files</span><input type="file" id="commonPick" multiple hidden></div>
       <div id="commonList" class="clist"></div>
       <div id="commonActs" style="display:none;margin-top:9px"><button class="btn primary sm" id="dlSel" style="width:100%">⬇ Download selected (<span id="dlSelN">0</span>)</button></div>
+      <div class="ncompose"><textarea id="noteBox" rows="2" maxlength="32768" placeholder="📝 Share a text note with everyone… stays in cloud, auto-clears in 24h"></textarea><button class="btn primary sm" id="noteSend">Share text ➤</button></div>
+      </div>
     </div>
   </aside>
   </div>
@@ -289,7 +312,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826080823";
+const BUILD="20260826083834";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
@@ -541,6 +564,7 @@ function handleJson(m){
     }
     case "peers":{
       peers=(m.peers||[]).filter(p=>p.id!==myId&&!(p.did&&p.did===myDid));
+      commonNotes=m.notes||[];
       turnReady.then(()=>{ for(const p of peers) if(!rtc.has(p.id)&&myId<p.id) ensureRtc(p.id,true); });
       const ids=new Set(peers.map(p=>p.id));
       for(const id of [...rtc.keys()]) if(!ids.has(id)) dropRtc(id);
@@ -658,6 +682,7 @@ function renderPeers(){
   for(const el of [...grid.children]) if(!have.has(el.id.slice(5))) el.remove();
   renderTargetBar();
   renderSaved(); renderCommon(); flushQueues();
+  if(collapsed.dev) renderMini();
 }
 setInterval(()=>{ for(const p of peers){ const c=document.getElementById("peer-"+p.id); if(c) c.querySelector(".pmeta").innerHTML=`online ${fmtSince(p.joined)}`; } },30000);
 function pruneGonePeers(){
@@ -665,7 +690,43 @@ function pruneGonePeers(){
   for(const t of transfers.values()) if(t.state!=="done"&&t.state!=="fail"&&!ids.has(t.peer)) failTx(t,"device left");
 }
 
+/* ---------- collapsible sections ---------- */
+let collapsed={}; try{ collapsed=JSON.parse(localStorage.getItem("share_collapse")||"{}")||{}; }catch{}
+function toggleCollapse(k){ collapsed[k]=!collapsed[k]; localStorage.setItem("share_collapse",JSON.stringify(collapsed)); applyCollapse(); }
+function applyCollapse(){
+  const map=[["common","commonBody","commonChev"],["saved","savedBody","savedChev"],["dev","devBody","devChev"],["act","txList","actChev"]];
+  for(const [k,body,chev] of map){
+    const b=document.getElementById(body), c=document.getElementById(chev);
+    if(b) b.style.display=collapsed[k]?"none":"";
+    if(c) c.textContent=collapsed[k]?"▸":"▾";
+  }
+  const mini=document.getElementById("devMini");
+  mini.style.display=collapsed.dev?"":"none";
+  if(collapsed.dev) renderMini();
+}
+function renderMini(){
+  const mini=document.getElementById("devMini"); mini.innerHTML="";
+  for(const p of sortedPeers()){
+    const ch=document.createElement("span");
+    ch.className="mchip"+((pinnedDid&&p.did===pinnedDid)?" sel":"");
+    ch.innerHTML=`<span class="sdot g"></span>${devIcon(p.ua)} ${esc(displayName(p))}`;
+    ch.onclick=()=>toggleSelect(p);
+    ch.addEventListener("dragover",e=>{e.preventDefault();ch.classList.add("sel");});
+    ch.addEventListener("dragleave",()=>ch.classList.remove("sel"));
+    ch.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();
+      const sid=e.dataTransfer.getData("droply/staged");
+      if(sid) sendStagedTo(p.id,sid); else handleDrop(p.id,e.dataTransfer);});
+    mini.appendChild(ch);
+  }
+  if(!peers.length) mini.innerHTML='<span style="color:var(--dim2);font-size:.78rem">No devices online</span>';
+}
+document.getElementById("devHead").onclick=e=>{ if(e.target.closest("button")) return; toggleCollapse("dev"); };
+document.getElementById("actToggle").onclick=()=>toggleCollapse("act");
+
 /* ---------- common share: password-gated shared box; bytes stay with the owner ---------- */
+let commonNotes=[];
+let hiddenNotes={}; try{ hiddenNotes=JSON.parse(localStorage.getItem("share_note_hide")||"{}")||{}; }catch{}
+function hideNote(nid){ hiddenNotes[nid]=Date.now(); localStorage.setItem("share_note_hide",JSON.stringify(hiddenNotes)); renderCommon(); }
 const COMMON_PASS="1234";
 let myCommon=[], commonSeq=0;
 const expectedTids=new Set(); // downloads we requested → auto-accept their offers
@@ -688,6 +749,18 @@ function renderCommon(){
   document.getElementById("commonLockBtn").style.display=locked?"none":"";
   const box=document.getElementById("commonList"); box.innerHTML="";
   for(const k of Object.keys(commonIndex)) delete commonIndex[k];
+  let shownNotes=0;
+  for(const n of [...commonNotes].reverse()){
+    if(hiddenNotes[n.nid]) continue; shownNotes++;
+    const r=document.createElement("div"); r.className="crow nrow";
+    r.innerHTML=`<span class="cico">📝</span><div class="cinfo"><div class="ntxt">${esc(n.text)}</div><div class="cmeta">by <b>${esc(n.by)}</b> · ${fmtSince(n.ts)} ago</div></div><button class="btn sm cp" title="Copy">📋</button><button class="btn sm hx" title="Hide for me" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕</button>`;
+    r.querySelector(".ntxt").onclick=()=>r.classList.toggle("open");
+    r.querySelector(".cp").onclick=async()=>{ if(!commonUnlocked()){lockNudge();return;} const ok=await tryCopy(n.text); if(ok) toast("Copied ✓","g"); };
+    r.querySelector(".hx").onclick=()=>hideNote(n.nid);
+    box.appendChild(r);
+  }
+  { const keep={}; for(const n of commonNotes) if(hiddenNotes[n.nid]) keep[n.nid]=hiddenNotes[n.nid];
+    hiddenNotes=keep; localStorage.setItem("share_note_hide",JSON.stringify(hiddenNotes)); }
   for(const it of myCommon){
     const r=document.createElement("div"); r.className="crow mine";
     r.innerHTML=`<span class="cico">📄</span><div class="cinfo"><div class="cnm">${esc(it.file.name)}</div><div class="cmeta">${fmtSize(it.file.size)} · shared by <b>you</b></div></div><button class="btn sm rm" style="color:var(--red);border-color:rgba(248,113,113,.4)">✕</button>`;
@@ -711,8 +784,19 @@ function renderCommon(){
   for(const k of [...commonSel]) if(!avail.has(k)) commonSel.delete(k);
   document.getElementById("commonActs").style.display=commonSel.size?"":"none";
   document.getElementById("dlSelN").textContent=commonSel.size;
-  if(!box.children.length) box.innerHTML='<div style="color:var(--dim2);font-size:.76rem;text-align:center;padding:10px 4px">Box is empty — drop something in it</div>';
+  if(!box.children.length) box.innerHTML='<div style="color:var(--dim2);font-size:.76rem;text-align:center;padding:10px 4px">Box is empty — drop a file or share a note</div>';
+  let totalFiles=myCommon.length; for(const pr of peers) totalFiles+=(pr.common||[]).length;
+  document.getElementById("commonCount").textContent=totalFiles+shownNotes;
 }
+document.getElementById("noteSend").onclick=()=>{
+  const b=document.getElementById("noteBox"), v=b.value.trim();
+  if(!v) return;
+  send({type:"note",text:v}); b.value="";
+  toast("📝 Note shared with everyone — auto-clears in 24h","g");
+};
+document.getElementById("noteBox").addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();document.getElementById("noteSend").click();} });
+document.getElementById("commonHead").onclick=e=>{ if(e.target.closest("button")) return; toggleCollapse("common"); };
+document.getElementById("savedHead").onclick=e=>{ if(e.target.closest("button")) return; toggleCollapse("saved"); };
 document.getElementById("dlSel").onclick=()=>{
   if(!commonUnlocked()){ lockNudge(); return; }
   for(const k of [...commonSel]){ const x=commonIndex[k]; if(x) requestCommon(x.owner,x.cid,x.name); }
@@ -779,6 +863,8 @@ function flushQueues(){
 }
 function renderSaved(){
   const dids=Object.keys(savedPcs);
+  { const on=dids.filter(d=>peers.some(p=>p.did===d)).length;
+    const el=document.getElementById("savedCount"); if(el) el.textContent=dids.length?on+"/"+dids.length+" online":"0"; }
   const list=document.getElementById("savedList"); list.innerHTML="";
   if(!dids.length){ list.innerHTML='<div style="color:var(--dim2);font-size:.75rem;text-align:center;padding:8px 4px;line-height:1.5">No saved PCs yet.<br>Click <b>☆</b> on a device card — it will stay here forever.</div>'; return; }
   for(const did of dids){
@@ -1535,6 +1621,44 @@ if(TAURI){
   $("sAuto").onchange=async()=>{ try{ await inv("set_setting",{key:"autostart",value:$("sAuto").checked}); toast($("sAuto").checked?"✅ Will start automatically at login":"Autostart off","g"); }catch(err){ toast("Autostart failed: "+esc(String(err)),"r"); $("sAuto").checked=!$("sAuto").checked; } };
   $("sMin").onchange=()=>inv("set_setting",{key:"start_minimized",value:$("sMin").checked});
   $("sTray").onchange=()=>inv("set_setting",{key:"close_to_tray",value:$("sTray").checked});
+  // in-app updates (Tauri updater): check on launch + every 4h; button click installs & restarts
+  let pendingUpdate=null;
+  async function checkAppUpdate(manual){
+    try{
+      const upd=window.__TAURI__.updater; if(!upd) return;
+      const up=await upd.check();
+      if(up){
+        pendingUpdate=up;
+        const b=$("updBtn"); b.style.display=""; b.textContent="⬆ Update to v"+up.version;
+        $("sUpdSt").textContent="v"+up.version+" available";
+        if(manual) toast("⬆ Update <b>v"+esc(up.version)+"</b> available — click the green button to install","g");
+        else toast("⬆ New version <b>v"+esc(up.version)+"</b> available — click Update (top right)","g");
+      } else {
+        $("sUpdSt").textContent="Latest version ✓";
+        if(manual) toast("You are on the latest version ✓","g");
+      }
+    }catch(err){ $("sUpdSt").textContent=""; if(manual) toast("Update check failed: "+esc(String(err)),"r"); }
+  }
+  async function doAppUpdate(){
+    if(!pendingUpdate) return;
+    const b=$("updBtn"); b.disabled=true;
+    let got=0,total=0;
+    try{
+      toast("⬇ Downloading update…");
+      await pendingUpdate.downloadAndInstall(ev=>{
+        if(ev.event==="Started") total=ev.data.contentLength||0;
+        else if(ev.event==="Progress"){ got+=ev.data.chunkLength; b.textContent="⬇ "+(total?Math.round(got/total*100)+"%":fmtSize(got)); }
+        else if(ev.event==="Finished") b.textContent="Restarting…";
+      });
+      toast("✅ Updated — restarting…","g");
+      setTimeout(()=>window.__TAURI__.process.relaunch(),800);
+    }catch(err){ b.disabled=false; b.textContent="⬆ Update available"; toast("Update failed: "+esc(String(err)),"r"); }
+  }
+  $("updBtn").onclick=doAppUpdate;
+  $("sCheckUpd").onclick=()=>checkAppUpdate(true);
+  setTimeout(()=>checkAppUpdate(false),15000);
+  setInterval(()=>checkAppUpdate(false),4*3600*1000);
+
   // first run: open settings once so the user sees autostart + folder
   if(!localStorage.getItem("share_app_seen")){ localStorage.setItem("share_app_seen","1"); setTimeout(openSettings,900); }
 }
@@ -1552,7 +1676,7 @@ async function checkBuild(){
 }
 setInterval(checkBuild,30000); setTimeout(checkBuild,5000);
 
-renderCommon(); renderSaved();
+renderCommon(); renderSaved(); applyCollapse();
 connect();
 </script>
 </body>
