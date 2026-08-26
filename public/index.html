@@ -380,7 +380,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826110921";
+const BUILD="20260826111639";
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
@@ -1694,29 +1694,50 @@ if(TAURI){
   // native drag & drop (HTML5 drop events don't fire in the webview)
   let dropHi=null;
   const clearHi=()=>{ document.body.classList.remove("pagedrag"); if(dropHi){dropHi.classList.remove("drag");dropHi=null;} };
-  const cardAt=(pos)=>{ // drag position → device card; tolerate scaled/unscaled coords
-    const s=window.devicePixelRatio||1;
-    for(const [x,y] of [[pos.x/s,pos.y/s],[pos.x,pos.y]]){
+  // Native drag positions come in physical pixels and can be offset by window
+  // chrome / OS scaling, so hit-test the card rectangles directly (elementFromPoint
+  // is unreliable behind overlays) and remember the last hovered card as a fallback.
+  const cardAt=(pos)=>{
+    if(!pos) return null;
+    const dpr=window.devicePixelRatio||1;
+    const cards=[...document.querySelectorAll(".peer")];
+    if(!cards.length) return null;
+    const tries=[[pos.x/dpr,pos.y/dpr],[pos.x,pos.y]];
+    for(const [x,y] of tries){
+      for(const c of cards){
+        const r=c.getBoundingClientRect();
+        if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return c;
+      }
+    }
+    for(const [x,y] of tries){
       const el=document.elementFromPoint(x,y);
       const c=el&&el.closest?el.closest(".peer"):null;
       if(c) return c;
     }
-    return null; };
-  tauriListen("tauri://drag-enter",()=>{ const t=selectedPeer(); if(t){document.body.dataset.target=displayName(t);document.body.classList.add("pagedrag");} });
-  tauriListen("tauri://drag-over",e=>{ const c=cardAt(e.payload.position); if(c!==dropHi){ if(dropHi) dropHi.classList.remove("drag"); dropHi=c; if(c) c.classList.add("drag"); }
-    if(c) document.body.classList.remove("pagedrag"); else if(selectedPeer()) document.body.classList.add("pagedrag"); });
+    return null;
+  };
+  const dropTarget=(pos)=>cardAt(pos)||(dropHi&&dropHi.isConnected?dropHi:null);
+  tauriListen("tauri://drag-enter",e=>{ const c=cardAt(e&&e.payload&&e.payload.position);
+    if(c){ dropHi=c; c.classList.add("drag"); return; }
+    const t=selectedPeer(); if(t){document.body.dataset.msg="📂  Drop anywhere → "+displayName(t);document.body.classList.add("pagedrag");} });
+  tauriListen("tauri://drag-over",e=>{ const c=cardAt(e.payload.position);
+    if(c!==dropHi){ if(dropHi) dropHi.classList.remove("drag"); dropHi=c; if(c) c.classList.add("drag"); }
+    if(c) document.body.classList.remove("pagedrag");
+    else { const t=selectedPeer(); if(t){document.body.dataset.msg="📂  Drop anywhere → "+displayName(t);document.body.classList.add("pagedrag");} } });
   tauriListen("tauri://drag-leave",clearHi);
-  tauriListen("tauri://drag-drop",e=>{ const c=cardAt(e.payload.position); clearHi();
-    if(c&&c.id.startsWith("soff-")){ // offline saved PC → queue the paths, auto-send on arrival
+  tauriListen("tauri://drag-drop",e=>{ const c=dropTarget(e.payload.position); clearHi();
+    const paths=e.payload.paths||[];
+    if(!paths.length) return;
+    if(c&&c.id.startsWith("soff-")){ // offline saved PC → queue, auto-send when it returns
       const did=c.id.slice(5); const q=sendQueue[did]=sendQueue[did]||[];
-      for(const pth of e.payload.paths||[]) q.push({kind:"path",path:pth});
+      for(const pth of paths) q.push({kind:"path",path:pth});
       renderSaved();
       toast(`📮 Queued for <b>${esc((savedPcs[did]||{}).nick||"saved PC")}</b> — auto-sends when it comes online. Keep Dukto running.`);
       return;
     }
-    let target=(c&&c.id.startsWith("peer-"))?c.id.slice(5):(selectedPeer()||{}).id;
-    if(!target){ toast("Select a device first (click its card), then drop","r"); return; }
-    for(const p of e.payload.paths||[]) sendPath(target,p); });
+    const target=(c&&c.id.startsWith("peer-"))?c.id.slice(5):(selectedPeer()||{}).id;
+    if(!target){ toast("Drop it on a device card, or click a card to select it first","r"); return; }
+    for(const p of paths) sendPath(target,p); });
 
   // settings modal
   const $=id=>document.getElementById(id);
