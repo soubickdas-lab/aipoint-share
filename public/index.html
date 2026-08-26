@@ -202,6 +202,7 @@ h2.sec{font-size:.84rem;color:var(--dim)}
 .tx.done .cx,.tx.fail .cx{display:none}
 .tx .cx{border-color:rgba(248,113,113,.4);color:var(--red)}
 .tx .cx:hover{background:rgba(248,113,113,.12)}
+.tx.pend{opacity:.72;border-style:dashed}
 .tx.text{border-left:3px solid var(--accent2)}
 .tx.text.in{border-left-color:var(--green)}
 .tx .txt{margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:.85rem;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;font-family:Consolas,monospace}
@@ -383,7 +384,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826132450";
+const BUILD="20260826134248";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -747,6 +748,7 @@ function handleJson(m){
     case "cancel": onCancel(m); break;
     case "text": onText(m); break;
     case "creq": onCreq(m); break;
+    case "pending": onPending(m); break;
     case "clearcommon":
       myCommon=[]; commonNotes=[]; commonSel.clear();
       hiddenNotes={}; localStorage.setItem("share_note_hide","{}");
@@ -891,6 +893,7 @@ setInterval(()=>{
     t._lastMove=t._lastMove||now;
     if(now-t._lastMove>90000) failTx(t,"stalled — no data for 90s");
   }
+  for(const [key,el] of [...pendingIn]) if(now-Number(el.dataset.at||0)>15*60*1000) clearPending(key);
 },15000);
 
 /* ---------- collapsible sections ---------- */
@@ -1285,6 +1288,7 @@ document.addEventListener("paste",e=>{
 });
 document.getElementById("clearAct").onclick=()=>{
   for(const [k,t] of transfers) if(t.state==="done"||t.state==="fail"){ t.el&&t.el.remove(); transfers.delete(k); }
+  for(const [k] of [...pendingIn]) clearPending(k);
   if(!document.getElementById("txList").children.length) document.getElementById("txHead").style.display="none";
 };
 
@@ -1422,6 +1426,7 @@ function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,ent
            source,sent:0,ackedSeq:-1,state:"offer",el:null,mt:meter(),label,native:native||null,entries:entries||null};
   transfers.set(txKey(peer,tid),t); renderTx(t);
   updTx(t,"Queued…"); touchPeer(peer);
+  if(!bench) send({type:"pending",to:peer,tid,name,size}); // let them see what's lined up
   outSlot(peer,()=>{
     if(t.state==="fail"){ outDone(peer); return; }
     send({type:"offer",to:peer,tid,name,size,mime:t.mime,astext:!!astext,bench:!!bench,native:native||null});
@@ -1528,7 +1533,7 @@ function onReceived(m){
     t.el.classList.add("done"); toast(`<b>${esc(t.name)}</b> delivered ✓`,"g"); if(t.kind!=="bench") sfx("done"); closePipes(t); outDone(t.peer);
   }
 }
-function onCancel(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t) failTx(t,"cancelled"); }
+function onCancel(m){ clearPending(txKey(m.from,m.tid)); const t=transfers.get(txKey(m.from,m.tid)); if(t) failTx(t,"cancelled"); }
 function buildFrame(idStr,tid,seq,payloadU8){
   const frame=new Uint8Array(17+payloadU8.byteLength);
   frame[0]=1; for(let i=0;i<8;i++) frame[i+1]=idStr.charCodeAt(i);
@@ -1635,7 +1640,21 @@ async function openStream(name,size){
 }
 
 /* ---------- transfers: receive ---------- */
+const pendingIn=new Map(); // announced-but-not-started incoming files
+function clearPending(key){ const el=pendingIn.get(key); if(el){ el.remove(); pendingIn.delete(key); } if(!document.getElementById("txList").children.length) document.getElementById("txHead").style.display="none"; }
+function onPending(m){
+  const key=txKey(m.from,m.tid);
+  if(transfers.has(key)||pendingIn.has(key)) return;
+  const el=document.createElement("div");
+  el.className="tx pend";
+  el.innerHTML=`<div class="row"><span class="fn">⏳ ${esc(m.name)} <span class="peer">← ${esc(m.fromNick||peerName(m.from))} · ${fmtSize(m.size)}</span></span><span class="st" style="margin:0">in queue</span></div>`;
+  el.dataset.at=Date.now();
+  document.getElementById("txHead").style.display="";
+  document.getElementById("txList").appendChild(el);
+  pendingIn.set(key,el);
+}
 async function onOffer(m){
+  clearPending(txKey(m.from,m.tid));
   const key=txKey(m.from,m.tid); if(transfers.has(key)) return;
   const t={tid:m.tid,peer:m.from,dir:"in",kind:m.bench?"bench":m.astext?"textfile":"file",name:m.name,size:m.size,mime:m.mime,
            chunks:[],got:0,state:"receiving",el:null,fromNick:m.fromNick,mt:meter(),lastUi:0,
@@ -1846,7 +1865,7 @@ function updTx(t,txt){
 }
 function failTx(t,why){
   if(t.state==="done"||t.state==="fail") return;
-  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear(); closePipes(t); if(t.dir==="out") outDone(t.peer);
+  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear(); closePipes(t); if(t.dir==="out"){ outDone(t.peer); send({type:"cancel",to:t.peer,tid:t.tid}); }
   if(t.stream){ try{t.stream.abort()}catch{} }
   if(t.disk){ diskBySid.delete(t.disk.sid); inv("recv_abort",{sid:t.disk.sid}).catch(()=>{}); }
   if(t.dir==="out"&&t.native&&TAURI) inv("tcp_cancel",{key:txKey(t.peer,t.tid)}).catch(()=>{});
