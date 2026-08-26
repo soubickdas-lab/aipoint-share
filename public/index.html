@@ -383,7 +383,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826130843";
+const BUILD="20260826132450";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -543,7 +543,7 @@ async function loadTurn(){
   }catch{}
 }
 const turnReady=Promise.race([loadTurn(),new Promise(r=>setTimeout(r,2500))]); setInterval(loadTurn,5*3600*1000);
-const N_PC=3, CH_PER_PC=4;
+const N_PC=3, CH_PER_PC=2;
 function ensureRtc(peerId, initiator){
   let e=rtc.get(peerId);
   if(e) return e;
@@ -866,9 +866,32 @@ function renderPeers(){
 }
 setInterval(()=>{ for(const p of peers){ const c=document.getElementById("peer-"+p.id); if(c) c.querySelector(".pmeta").innerHTML=`online ${fmtSince(p.joined)}`; } },30000);
 function pruneGonePeers(){
+  // A peer's socket id changes on every reconnect (and the server keeps one
+  // socket per device), so "gone from the roster" does NOT mean the transfer
+  // died — LAN TCP and DataChannels keep running without signaling.
   const ids=new Set(peers.map(p=>p.id));
-  for(const t of transfers.values()) if(t.state!=="done"&&t.state!=="fail"&&!ids.has(t.peer)) failTx(t,"device left");
+  const now=Date.now();
+  for(const t of transfers.values()){
+    if(t.state!=="sending"&&t.state!=="receiving"&&t.state!=="offer"&&t.state!=="ask") continue;
+    if(ids.has(t.peer)){ t.goneAt=0; continue; }
+    const e=rtc.get(t.peer);
+    const pathAlive=(e&&openDcs(e).length)||t.native||t.nativeIn||(t.pipes&&livePipes(t).length);
+    if(pathAlive) continue;                       // data path is fine, keep going
+    t.goneAt=t.goneAt||now;
+    if(now-t.goneAt>45000) failTx(t,"device left"); // really gone
+  }
 }
+// a transfer that stops moving for a while is dead — say so instead of hanging
+setInterval(()=>{
+  const now=Date.now();
+  for(const t of transfers.values()){
+    if(t.state!=="sending"&&t.state!=="receiving") continue;
+    const done=t.dir==="out"?t.sent:t.got;
+    if(done!==t._lastDone){ t._lastDone=done; t._lastMove=now; continue; }
+    t._lastMove=t._lastMove||now;
+    if(now-t._lastMove>90000) failTx(t,"stalled — no data for 90s");
+  }
+},15000);
 
 /* ---------- collapsible sections ---------- */
 let collapsed={}; try{ collapsed=JSON.parse(localStorage.getItem("share_collapse")||"{}")||{}; }catch{}
@@ -1384,13 +1407,26 @@ async function* zipSource(plan){
 
 /* ---------- transfers: send ---------- */
 function txKey(peer,tid){return peer+":"+tid;}
+// Sending 10 files at once opened dozens of sockets and made transfers fail.
+// Run at most MAX_OUT per device; the rest wait their turn.
+const MAX_OUT=2, outQ={}, outActive={};
+function outSlot(peer,fn){ (outQ[peer]=outQ[peer]||[]).push(fn); outPump(peer); }
+function outPump(peer){
+  outActive[peer]=outActive[peer]||0;
+  while(outActive[peer]<MAX_OUT&&(outQ[peer]||[]).length){ outActive[peer]++; try{ (outQ[peer].shift())(); }catch{ outActive[peer]--; } }
+}
+function outDone(peer){ if(!(peer in outActive)) return; outActive[peer]=Math.max(0,outActive[peer]-1); outPump(peer); }
 function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,entries,tid:fixedTid}){
   const tid=fixedTid?(fixedTid>>>0):((++tidCounter)>>>0);
   const t={tid,peer,dir:"out",kind:bench?"bench":astext?"textfile":"file",name,size,mime:mime||"application/octet-stream",
            source,sent:0,ackedSeq:-1,state:"offer",el:null,mt:meter(),label,native:native||null,entries:entries||null};
   transfers.set(txKey(peer,tid),t); renderTx(t);
-  send({type:"offer",to:peer,tid,name,size,mime:t.mime,astext:!!astext,bench:!!bench,native:native||null});
-  updTx(t,"Waiting for the receiver to accept…"); touchPeer(peer);
+  updTx(t,"Queued…"); touchPeer(peer);
+  outSlot(peer,()=>{
+    if(t.state==="fail"){ outDone(peer); return; }
+    send({type:"offer",to:peer,tid,name,size,mime:t.mime,astext:!!astext,bench:!!bench,native:native||null});
+    updTx(t,"Waiting for the receiver to accept…");
+  });
 }
 function isDupSend(peer,name,size){
   const now=performance.now();
@@ -1471,6 +1507,17 @@ function onAck(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t){ t.ackedSeq
 // macrotask yield that background-tab timer throttling can't slow down
 function yieldTask(){ return new Promise(r=>{ const c=new MessageChannel(); c.port1.onmessage=()=>r(); c.port2.postMessage(0); }); }
 function waitAckOrTick(t){ return new Promise(r=>{ t.wake=r; setTimeout(r,120); }); }
+function finishOut(t,note){
+  if(!t||t.state==="done"||t.state==="fail") return;
+  t.state="done";
+  const secs=(performance.now()-t.mt.t0)/1000;
+  if(t.kind==="file"||t.kind==="bench"){ setSpeed(t,t.size/Math.max(secs,.001)); updTx(t,`${t.kind==="bench"?"⚡ Result":"Delivered ✓"} ${t.viaTxt||""} · ${secs.toFixed(1)}s${note?" · "+note:""}`); }
+  else updTx(t,"Delivered ✓");
+  t.el&&t.el.classList.add("done");
+  if(t.kind!=="bench") sfx("done");
+  closePipes(t); outDone(t.peer);
+  toast(`<b>${esc(t.name)}</b> delivered ✓`,"g");
+}
 function onReceived(m){
   const t=transfers.get(txKey(m.from,m.tid));
   if(t&&t.dir==="out"){
@@ -1478,7 +1525,7 @@ function onReceived(m){
     const secs=(performance.now()-t.mt.t0)/1000;
     if(t.kind==="file"||t.kind==="bench"){ setSpeed(t,t.size/Math.max(secs,.001)); updTx(t,`${t.kind==="bench"?"⚡ Result":"Delivered ✓"} ${t.viaTxt||""} · ${secs.toFixed(1)}s`); }
     else updTx(t,"Delivered ✓ — copied on their device");
-    t.el.classList.add("done"); toast(`<b>${esc(t.name)}</b> delivered ✓`,"g"); if(t.kind!=="bench") sfx("done"); closePipes(t);
+    t.el.classList.add("done"); toast(`<b>${esc(t.name)}</b> delivered ✓`,"g"); if(t.kind!=="bench") sfx("done"); closePipes(t); outDone(t.peer);
   }
 }
 function onCancel(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t) failTx(t,"cancelled"); }
@@ -1557,6 +1604,7 @@ async function pump(t){
   }
   if(offset!==t.size){ failTx(t,"size mismatch ("+offset+"/"+t.size+")"); return; }
   updTx(t,"Finishing…");
+  setTimeout(()=>{ if(t.state==="sending") finishOut(t,"unconfirmed"); },25000);
 }
 
 /* ---------- streaming download (service worker) ---------- */
@@ -1798,7 +1846,7 @@ function updTx(t,txt){
 }
 function failTx(t,why){
   if(t.state==="done"||t.state==="fail") return;
-  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear(); closePipes(t);
+  t.state="fail"; t.chunks=null; if(t.pending) t.pending.clear(); closePipes(t); if(t.dir==="out") outDone(t.peer);
   if(t.stream){ try{t.stream.abort()}catch{} }
   if(t.disk){ diskBySid.delete(t.disk.sid); inv("recv_abort",{sid:t.disk.sid}).catch(()=>{}); }
   if(t.dir==="out"&&t.native&&TAURI) inv("tcp_cancel",{key:txKey(t.peer,t.tid)}).catch(()=>{});
@@ -1886,6 +1934,7 @@ async function nativeSend(t,tcp){
   try{
     await inv("tcp_send",{key,hosts:tcp.ips||[],port:tcp.port,token:tcp.token,entries:t.entries,streams:6});
     t.sent=t.size; meterPush(t.mt,t.size); updTx(t,"Finishing…");
+    setTimeout(()=>{ if(t.state==="sending") finishOut(t); },2000); // don't wait on signaling
   }catch(err){
     const msg=String(err);
     if(t.state!=="sending") return;
