@@ -179,6 +179,15 @@ export class ShareRoom {
         }
         return;
       }
+      case "clearcommon": {
+        // wipe the shared box for everyone: cloud notes here, shared files on each device
+        this.notes = [];
+        await this.ctx.storage.put("notes", this.notes);
+        const wipe = JSON.stringify({ type: "clearcommon" });
+        for (const { ws: sock } of this.sockets()) this.safeSend(sock, wipe);
+        this.broadcast();
+        return;
+      }
       case "nick": {
         m.nick = String(msg.nick || "").slice(0, 24);
         ws.serializeAttachment(m);

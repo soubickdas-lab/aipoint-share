@@ -78,6 +78,9 @@ html.tauri #getApp{display:none}
 .peer.pinned.sel{box-shadow:0 0 0 2px rgba(91,140,255,.35)}
 .peer.drag{border-color:var(--green)!important;background:rgba(52,211,153,.08)!important;transform:scale(1.02)}
 .peer .top{display:flex;gap:12px;align-items:center;padding-right:70px}
+.pavatar svg{width:22px;height:22px;opacity:.92}
+.mchip svg{width:14px;height:14px}
+.avatar svg{width:30px;height:30px}
 .pavatar{width:44px;height:44px;border-radius:12px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none}
 .pname{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .pmeta{font-size:.75rem;color:var(--dim);margin-top:2px}
@@ -350,7 +353,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
   </main>
   <aside class="colR">
     <div id="commonBox" class="panel">
-      <div class="phead chead" id="commonHead"><span class="ptitle"><span class="chev" id="commonChev">▾</span> 🗃 Common Share <span class="cnt" id="commonCount">0</span></span><button class="btn sm" id="commonLockBtn" style="display:none">🔒 Lock</button></div>
+      <div class="phead chead" id="commonHead"><span class="ptitle"><span class="chev" id="commonChev">▾</span> 🗃 Common Share <span class="cnt" id="commonCount">0</span></span><button class="btn sm" id="commonClearAll" title="Remove every file and note from the shared box, for everyone" style="color:var(--red);border-color:rgba(248,113,113,.4)">🧹 Clear all</button><button class="btn sm" id="commonLockBtn" style="display:none">🔒 Lock</button></div>
       <div id="commonBody">
       <div style="color:var(--dim2);font-size:.71rem;margin:-4px 0 10px;line-height:1.45">Shared with every device · P2P — files vanish with their owner · notes auto-clear in 24h</div>
       <div id="commonLocked" class="lockrow">
@@ -380,7 +383,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826121426";
+const BUILD="20260826122044";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -440,13 +443,23 @@ function parseUA(){
   const mobile=/Android|iPhone|iPad|Mobile/.test(u);
   return {os,br,dev:mobile?(/iPad|Tablet/.test(u)?"Tablet":"Mobile"):"Desktop"};
 }
-function devIcon(ua){
-  if(!ua) return "👤";
-  if(ua.dev==="Mobile") return "📱";
-  if(ua.dev==="Tablet") return "📲";
-  if(ua.os==="macOS") return "🖥️";
-  return "💻";
+const OS_SVG={
+  apple:'<path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>',
+  windows:'<path d="M0 0h11.377v11.372H0Zm12.623 0H24v11.372H12.623ZM0 12.623h11.377V24H0Zm12.623 0H24V24H12.623"/>',
+  android:'<path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85a.637.637 0 0 0-.83.22l-1.88 3.24a11.43 11.43 0 0 0-8.94 0L5.65 5.67a.643.643 0 0 0-.87-.2c-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 0 0 1 18h22a10.78 10.78 0 0 0-5.4-8.52M7 15.25a1.25 1.25 0 1 1 1.25-1.25c0 .69-.56 1.25-1.25 1.25m10 0a1.25 1.25 0 1 1 1.25-1.25c0 .69-.56 1.25-1.25 1.25"/>',
+  linux:'<path d="M12 2c-2.2 0-3.5 1.9-3.5 4.2 0 1.5-.3 2.3-1 3.4C6.3 11.4 5 13 5 15.4c0 1.4.5 2.3 1.2 2.9-.4.6-.7 1.2-.7 1.8 0 1.2 1.1 1.9 2.6 1.9 1.1 0 1.9-.4 2.4-.9.4.1.9.2 1.5.2s1.1-.1 1.5-.2c.5.5 1.3.9 2.4.9 1.5 0 2.6-.7 2.6-1.9 0-.6-.3-1.2-.7-1.8.7-.6 1.2-1.5 1.2-2.9 0-2.4-1.3-4-2.5-5.8-.7-1.1-1-1.9-1-3.4C15.5 3.9 14.2 2 12 2m-1.6 4.3c.4 0 .7.4.7 1s-.3 1-.7 1-.7-.4-.7-1 .3-1 .7-1m3.2 0c.4 0 .7.4.7 1s-.3 1-.7 1-.7-.4-.7-1 .3-1 .7-1M12 9.2c.8 0 1.9.5 1.9 1 0 .3-.3.5-.7.8-.4.3-.8.6-1.2.6s-.8-.3-1.2-.6c-.4-.3-.7-.5-.7-.8 0-.5 1.1-1 1.9-1"/>'
+};
+function osLogo(key){ return '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true" style="display:block">'+OS_SVG[key]+'</svg>'; }
+// real OS marks instead of generic emoji
+function osIcon(os,dev){
+  if(os==="macOS"||os==="iPhone"||os==="iPad") return osLogo("apple");
+  if(os==="Windows") return osLogo("windows");
+  if(os==="Android") return osLogo("android");
+  if(os==="Linux") return osLogo("linux");
+  return (dev==="Mobile"||dev==="Tablet")?"📱":"💻";
 }
+function devIcon(ua){ return osIcon((ua||{}).os,(ua||{}).dev); }
+
 const ADJ=["Swift","Neon","Cosmic","Silent","Golden","Crimson","Frost","Shadow","Turbo","Lucky","Electric","Mystic","Solar","Pixel","Royal","Wild"];
 const NOUN=["Falcon","Tiger","Panda","Wolf","Phoenix","Otter","Raven","Cobra","Lynx","Orca","Hawk","Fox","Dragon","Koala","Puma","Eagle"];
 function funName(id){ let h=0; for(const c of id) h=(h*31+c.charCodeAt(0))>>>0; return ADJ[h%ADJ.length]+" "+NOUN[(h>>>4)%NOUN.length]; }
@@ -661,6 +674,12 @@ function handleJson(m){
     case "cancel": onCancel(m); break;
     case "text": onText(m); break;
     case "creq": onCreq(m); break;
+    case "clearcommon":
+      myCommon=[]; commonNotes=[]; commonSel.clear();
+      hiddenNotes={}; localStorage.setItem("share_note_hide","{}");
+      hiddenFiles={}; localStorage.setItem("share_cfile_hide","{}");
+      sendHello(); renderCommon(); toast("🧹 Common Share cleared");
+      break;
     case "pipes": onPipes(m); break;
     case "err": if(m.msg==="peer-gone") failTxByTid(m.tid,"device left"); break;
   }
@@ -668,7 +687,7 @@ function handleJson(m){
 
 /* ---------- render: me ---------- */
 function renderMe(){
-  document.getElementById("myAvatar").textContent=devIcon(myMeta.ua);
+  document.getElementById("myAvatar").innerHTML=devIcon(myMeta.ua);
   document.getElementById("myName").textContent=localStorage.getItem("share_nick")||funName(myId);
   const ua=myMeta.ua;
   document.getElementById("myDevice").innerHTML=ua?`<b>${esc(ua.os)}</b> · ${esc(ua.br)} · ${esc(ua.dev)}`:"";
@@ -755,7 +774,7 @@ function renderPeers(){
     (savedPcs[p.did]?sgrid:grid).appendChild(card); // saved PCs get their own section
     const isSel=!!(pinnedDid&&p.did===pinnedDid), isRec=!isSel&&!selectedPeer()&&recent[p.did]&&order[0]===p;
     card.classList.toggle("sel",isSel);
-    card.querySelector(".pavatar").textContent=devIcon(p.ua);
+    card.querySelector(".pavatar").innerHTML=devIcon(p.ua);
     card.querySelector(".pname").innerHTML=`<span class="sdot g" title="Online"></span> ${esc(displayName(p))}${p.app?' <span class="tag app" title="Desktop app v'+esc(p.app.v)+'">🖥 APP</span>':""}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}${isRec?' <span class="tag rec">RECENT</span>':""}`;
     card.querySelector(".pmeta").innerHTML=`online ${fmtSince(p.joined)}`;
     const ua=p.ua||{};
@@ -901,6 +920,11 @@ document.getElementById("noteSend").onclick=()=>{
   toast("📝 Note shared with everyone — auto-clears in 24h","g");
 };
 document.getElementById("noteBox").addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();document.getElementById("noteSend").click();} });
+document.getElementById("commonClearAll").onclick=e=>{
+  e.stopPropagation();
+  if(!confirm("Clear the Common Share box for everyone?\n\nAll shared files and notes will be removed on every device.")) return;
+  send({type:"clearcommon"});
+};
 document.getElementById("commonHead").onclick=e=>{ if(e.target.closest("button")) return; toggleCollapse("common"); };
 document.getElementById("savedHead").onclick=e=>{ if(e.target.closest("button")) return; toggleCollapse("saved"); };
 document.getElementById("dlSel").onclick=()=>{
@@ -999,7 +1023,7 @@ function renderSaved(){
     const card=document.createElement("div"); card.className="peer off"+(isSel?" sel":""); card.id="soff-"+did;
     card.innerHTML=`
       <div class="corner"><button class="starb on" title="Remove from Saved PCs">⭐</button><span class="netb" style="color:var(--red);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)">🔴 Offline</span></div>
-      <div class="top"><div class="pavatar">${info.os==="macOS"?"🖥️":"💻"}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}</div><div class="pmeta">${info.last?("last seen "+fmtSince(info.last)+" ago"):"waiting for it to come online"}</div></div></div>
+      <div class="top"><div class="pavatar">${osIcon(info.os,info.dev)}</div><div><div class="pname"><span class="sdot r"></span> ${esc(info.nick)}${isSel?' <span class="tag sel">✓ SELECTED</span>':""}</div><div class="pmeta">${info.last?("last seen "+fmtSince(info.last)+" ago"):"waiting for it to come online"}</div></div></div>
       <div class="pinfo"><span>💻 <b>${esc(info.os||"?")}</b></span><span>${q.length?("📮 <b>"+q.length+" queued</b>"):"queue empty"}</span></div>
       <div class="phint">📎 Drop files/folders here · <span class="pf">📄 files</span> · <span class="pd">📁 folder</span> · <span class="pt">📝 text</span></div>
       <div class="compose${offOpen[did]?" open":""}"><textarea rows="1" placeholder=""></textarea><button class="btn primary sm">Queue ➤</button></div>
