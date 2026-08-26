@@ -384,7 +384,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826134248";
+const BUILD="20260826140044";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -912,7 +912,8 @@ function applyCollapse(){
 }
 function renderMini(){
   const mini=document.getElementById("devMini"); mini.innerHTML="";
-  for(const p of sortedPeers()){
+  const others=sortedPeers().filter(p=>!savedPcs[p.did]); // saved PCs have their own section
+  for(const p of others){
     const ch=document.createElement("span");
     ch.className="mchip"+((pinnedDid&&p.did===pinnedDid)?" sel":"");
     ch.innerHTML=`<span class="sdot g"></span>${devIcon(p.ua)} ${esc(displayName(p))}`;
@@ -924,7 +925,7 @@ function renderMini(){
       if(sid) sendStagedTo(p.id,sid); else handleDrop(p.id,e.dataTransfer);});
     mini.appendChild(ch);
   }
-  if(!peers.length) mini.innerHTML='<span style="color:var(--dim2);font-size:.78rem">No devices online</span>';
+  if(!others.length) mini.innerHTML='<span style="color:var(--dim2);font-size:.78rem">No other devices online</span>';
 }
 document.getElementById("devHead").onclick=e=>{ if(e.target.closest("button")) return; toggleCollapse("dev"); };
 document.getElementById("actToggle").onclick=()=>toggleCollapse("act");
