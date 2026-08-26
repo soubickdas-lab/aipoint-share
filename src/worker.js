@@ -273,6 +273,10 @@ export default {
         headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" },
       });
     }
-    return env.ASSETS.fetch(request);
+    // desktop app's bundled loader fetches the UI cross-origin — allow it
+    const resp = await env.ASSETS.fetch(request);
+    const h = new Headers(resp.headers);
+    h.set("Access-Control-Allow-Origin", "*");
+    return new Response(resp.body, { status: resp.status, headers: h });
   },
 };
