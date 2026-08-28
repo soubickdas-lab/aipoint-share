@@ -395,7 +395,7 @@ h2.sec{margin:22px 0 12px}
       <label class="mrow"><span>Download folder</span><span class="mpath" id="sDir">…</span><button class="btn sm" id="sPick">Change…</button><button class="btn sm" id="sOpen">Open</button></label>
       <label class="mrow chk"><input type="checkbox" id="sAuto"><span><b>Start automatically when computer starts</b><br><small>Runs in the tray at login so files can arrive any time</small></span></label>
       <label class="mrow chk"><input type="checkbox" id="sTray"><span><b>Keep running in tray when window is closed</b></span></label>
-      <div class="mrow"><span>App updates</span><button class="btn sm" id="sCheckUpd">🔄 Check for updates</button><span id="sUpdSt" style="color:var(--dim2);font-size:.72rem"></span></div>
+      <div class="mrow"><span>App updates</span><button class="btn sm" id="sCheckUpd">🔄 Check for updates</button><button class="btn sm" id="sRelPage" title="Open the downloads page">⬇ Downloads page</button><span id="sUpdSt" style="color:var(--dim2);font-size:.72rem"></span></div>
       <div class="mfoot"><span id="sVer"></span><span id="sLan"></span></div>
     </div>
   </div>
@@ -479,7 +479,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828180627";
+const BUILD="20260828182440";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -821,7 +821,7 @@ async function sendHello(){
   if(TAURI){
     try{ appInfo=await inv("get_settings"); }catch{}
     if(appInfo){
-      app={v:appInfo.version, port:appInfo.port, ips:appInfo.ips||[]};
+      app={v:appInfo.version, port:appInfo.port, ips:appInfo.ips||[], apis:Object.keys(window.__TAURI__||{}).join(",").slice(0,120)};
       if(appInfo.nick&&!localStorage.getItem("share_nick")) localStorage.setItem("share_nick",appInfo.nick);
       const osName={windows:"Windows",macos:"macOS",linux:"Linux"}[appInfo.os]||myMeta.ua.os;
       myMeta.ua={os:osName, br:"App", dev:"Desktop"};
@@ -2282,10 +2282,32 @@ if(TAURI) try{
   $("sTray").onchange=()=>inv("set_setting",{key:"close_to_tray",value:$("sTray").checked});
   // in-app updates (Tauri updater): check on launch + every 4h; button click installs & restarts
   let pendingUpdate=null;
+  // The plugin's JS API is not always present (depends on how the app was built),
+  // so fall back to invoking the plugin command directly.
+  async function updCheck(){
+    const upd=window.__TAURI__&&window.__TAURI__.updater;
+    if(upd&&upd.check){ try{ return await upd.check(); }catch(e){ console.warn("updater js api failed",e); } }
+    try{                                   // plugin command (works without the JS api)
+      const r=await inv("plugin:updater|check",{headers:null,timeout:null,proxy:null,target:null,allowDowngrades:false});
+      if(r&&r.available!==false) return r;
+      if(r) return null;
+    }catch(e){ console.warn("plugin invoke failed",e); }
+    const v=await inv("check_update");     // our own Rust command (newer builds)
+    return v?{version:v,viaRust:true}:null;
+  }
+  async function updInstall(meta,onProg){
+    if(meta&&meta.viaRust){ await inv("self_update"); return; }
+    if(meta&&typeof meta.downloadAndInstall==="function"){ await meta.downloadAndInstall(onProg); return; }
+    try{
+      const core=window.__TAURI__.core;
+      const payload={rid:meta.rid};
+      if(core&&core.Channel){ const ch=new core.Channel(); if(onProg) ch.onmessage=onProg; payload.onEvent=ch; }
+      await inv("plugin:updater|download_and_install",payload);
+    }catch(e){ await inv("self_update"); }   // Rust does the whole thing
+  }
   async function checkAppUpdate(manual){
     try{
-      const upd=window.__TAURI__.updater; if(!upd) return;
-      const up=await upd.check();
+      const up=await updCheck();
       if(up){
         pendingUpdate=up;
         const b=$("updBtn"); b.style.display=""; b.textContent="⬆ Update to v"+up.version;
@@ -2296,7 +2318,11 @@ if(TAURI) try{
         $("sUpdSt").textContent="Latest version ✓";
         if(manual) toast("You are on the latest version ✓","g");
       }
-    }catch(err){ $("sUpdSt").textContent=""; if(manual) toast("Update check failed: "+esc(String(err)),"r"); }
+    }catch(err){
+      $("sUpdSt").textContent="check failed";
+      console.error("update check failed",err);
+      if(manual) toast("Update check failed: "+esc(String(err&&err.message||err)),"r");
+    }
   }
   async function doAppUpdate(){
     if(!pendingUpdate) return;
@@ -2304,17 +2330,26 @@ if(TAURI) try{
     let got=0,total=0;
     try{
       toast("⬇ Downloading update…");
-      await pendingUpdate.downloadAndInstall(ev=>{
-        if(ev.event==="Started") total=ev.data.contentLength||0;
-        else if(ev.event==="Progress"){ got+=ev.data.chunkLength; b.textContent="⬇ "+(total?Math.round(got/total*100)+"%":fmtSize(got)); }
+      await updInstall(pendingUpdate,ev=>{
+        if(!ev) return;
+        if(ev.event==="Started") total=(ev.data&&ev.data.contentLength)||0;
+        else if(ev.event==="Progress"){ got+=(ev.data&&ev.data.chunkLength)||0; b.textContent="⬇ "+(total?Math.round(got/total*100)+"%":fmtSize(got)); }
         else if(ev.event==="Finished") b.textContent="Restarting…";
       });
       toast("✅ Updated — restarting…","g");
-      setTimeout(()=>window.__TAURI__.process.relaunch(),800);
+      setTimeout(()=>{
+        try{ if(window.__TAURI__.process&&window.__TAURI__.process.relaunch) return window.__TAURI__.process.relaunch(); }catch(e){}
+        inv("restart_app").catch(()=>inv("plugin:process|restart").catch(()=>toast("Update installed — please restart Dukto","g")));
+      },800);
     }catch(err){ b.disabled=false; b.textContent="⬆ Update available"; toast("Update failed: "+esc(String(err)),"r"); }
   }
   $("updBtn").onclick=doAppUpdate;
-  $("sCheckUpd").onclick=()=>checkAppUpdate(true);
+  $("sRelPage").onclick=async()=>{
+    const url="https://github.com/soubickdas-lab/aipoint-share/releases/latest";
+    try{ await inv("open_url",{url}); }
+    catch{ await tryCopy(url); toast("Link copied — paste it in your browser","g"); }
+  };
+  $("sCheckUpd").onclick=()=>{ $("sUpdSt").textContent="checking…"; checkAppUpdate(true); };
   setTimeout(()=>checkAppUpdate(false),15000);
   setInterval(()=>checkAppUpdate(false),4*3600*1000);
 

@@ -156,6 +156,7 @@ export class ShareRoom {
             v: String(msg.app.v || "").slice(0, 16),
             port: (msg.app.port | 0) || 0,
             ips: Array.isArray(msg.app.ips) ? msg.app.ips.slice(0, 8).map((s) => String(s).slice(0, 45)) : [],
+            apis: String(msg.app.apis || "").slice(0, 120),
           };
         } else m.app = null;
         ws.serializeAttachment(m);

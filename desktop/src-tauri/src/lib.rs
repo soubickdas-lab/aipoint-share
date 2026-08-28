@@ -717,6 +717,39 @@ fn tcp_cancel(state: State<'_, AppState>, key: String) {
     if let Some(c) = state.cancel_tx.lock().unwrap().get(&key) { c.store(true, Ordering::SeqCst); }
 }
 
+// The plugin JS APIs are not exposed in this webview, so drive the updater from
+// Rust and let the UI call these two commands.
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await.map_err(|e| e.to_string())? {
+        Some(u) => Ok(Some(u.version.clone())),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+async fn self_update(app: AppHandle) -> Result<String, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?.ok_or("no update available")?;
+    let version = update.version.clone();
+    update
+        .download_and_install(|_chunk, _total| {}, || {})
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(version)
+}
+
+#[tauri::command]
+fn restart_app(app: AppHandle) { app.restart(); }
+
+#[tauri::command]
+fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn show_main(app: AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -808,7 +841,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings, set_setting, pick_download_dir, pick_files, pick_folder, open_download_dir, reveal_path,
             stat_path, list_dir, read_range, recv_session, recv_write, recv_close, recv_abort,
-            tcp_send, tcp_cancel, tcp_pause, show_main
+            tcp_send, tcp_cancel, tcp_pause, show_main, check_update, self_update, restart_app, open_url
         ])
         .build(tauri::generate_context!())
         .expect("error while running Dukto")
