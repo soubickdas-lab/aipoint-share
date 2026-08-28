@@ -311,16 +311,39 @@ body.actopen #actPanel{transform:none}
 .tx .pz{border-color:color-mix(in srgb,var(--amber) 45%,transparent);color:var(--amber)}
 .tx.paused{opacity:.75}
 @media(max-width:560px){#actPanel{width:100vw}}
+
+/* ===== polish pass ===== */
+.hamb{position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:34px;border-radius:11px;
+  background:color-mix(in srgb,var(--card) 55%,transparent);border:1px solid color-mix(in srgb,var(--border) 70%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:.16s;margin-left:4px;cursor:pointer}
+.hamb:hover{border-color:var(--accent);transform:translateY(-1px)}
+.hamb .hbars{display:flex;flex-direction:column;gap:3px;width:16px}
+.hamb .hbars i{display:block;height:2px;border-radius:2px;background:var(--text);opacity:.85}
+.hamb .hbars i:nth-child(2){width:11px;margin-left:auto}
+body.actopen .hamb{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.wrap>header{gap:10px}
+.wrap>header>div:last-child{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn.stopall{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,transparent);background:color-mix(in srgb,var(--red) 10%,transparent)}
+.btn.stopall:hover{background:color-mix(in srgb,var(--red) 18%,transparent)}
+.tx .pz{min-width:34px;text-align:center;font-size:.9rem;line-height:1;padding:5px 9px}
+.tx .pz.on{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 50%,transparent);background:color-mix(in srgb,var(--amber) 12%,transparent)}
+#actPanel .tx{border-radius:13px;padding:11px 12px}
+#actPanel .tx .fn{font-size:.82rem}
+#actPanel .tx .spd{font-size:1.15rem}
+.logo{display:flex;align-items:center;gap:9px}
+.logo .mark{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:.95rem;box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 40%,transparent)}
+.peer .pname{letter-spacing:-.01em}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">⚡ Duk<span>to</span></div>
+    <div class="logo"><span class="mark">⚡</span><span>Duk<span>to</span></span></div>
     <div style="display:flex;gap:8px;align-items:center">
       <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
       <button class="btn sm" id="themeBtn" title="Light / dark theme">🌓</button>
-      <button class="btn sm hamb" id="actBtn" title="Activity — transfers and last 24h">☰<span class="abadge" id="actBadge" style="display:none">0</span></button>
+      <button class="hamb" id="actBtn" title="Activity — transfers and last 24h" aria-label="Activity"><span class="hbars"><i></i><i></i><i></i></span><span class="abadge" id="actBadge" style="display:none">0</span></button>
       <button class="btn sm" id="refreshBtn" title="Reconnect &amp; refresh device list">🔄 Refresh</button>
       <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
       <button class="btn sm" id="updBtn" style="display:none;border-color:rgba(52,211,153,.5);color:var(--green)">⬆ Update available</button>
@@ -406,6 +429,7 @@ body.actopen #actPanel{transform:none}
   <div class="dhead">
     <div><div class="dtitle">Activity</div><div class="dsub" id="actSub">nothing running</div></div>
     <div style="display:flex;gap:6px">
+      <button class="btn sm stopall" id="stopAll" title="Stop every running transfer" style="display:none">⏹ Stop all</button>
       <button class="btn sm" id="clearAct" title="Clear finished items">Clear</button>
       <button class="btn sm" id="actClose" title="Close">✕</button>
     </div>
@@ -430,7 +454,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828160406";
+const BUILD="20260828161221";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -1210,7 +1234,7 @@ function renderSaved(){
       const sid=e.dataTransfer.getData("droply/staged");
       if(sid){ const it=staged.find(x=>String(x.id)===String(sid));
         let batch=staged.filter(x=>x.sel); if(!batch.length||(it&&!it.sel)) batch=it?[it]:[];
-        if(batch.length){ queueOrSend(did,batch.map(b=>b.kind==="file"?{kind:"file",file:b.file}:{kind:"folder",root:b.root,list:b.list}));
+        if(batch.length){ queueOrSend(did,batch.map(b=>b.kind==="file"?{kind:"file",file:b.file}:(b.kind==="path"||b.kind==="pathdir")?{kind:"path",path:b.path}:{kind:"folder",root:b.root,list:b.list}));
           staged=staged.filter(x=>!batch.includes(x)); renderTray(); }
         return; }
       queueDrop(did,e.dataTransfer);});
@@ -1229,7 +1253,7 @@ function renderTray(){
   for(const it of staged){
     const c=document.createElement("div");
     c.className="chip"+(it.sel?" sel":""); c.draggable=true;
-    c.innerHTML=`<span class="ck">✓</span><span class="nm">${it.kind==="folder"?"📁 ":"📄 "}${esc(it.name)}</span><span class="sz">${fmtSize(it.size)}</span><span class="rm" title="Remove">✕</span>`;
+    c.innerHTML=`<span class="ck">✓</span><span class="nm">${(it.kind==="folder"||it.kind==="pathdir")?"📁 ":"📄 "}${esc(it.name)}</span><span class="sz">${fmtSize(it.size)}</span><span class="rm" title="Remove">✕</span>`;
     c.onclick=e=>{ if(e.target.classList.contains("rm")) return; it.sel=!it.sel; renderTray(); };
     c.querySelector(".rm").onclick=()=>{ staged=staged.filter(x=>x!==it); renderTray(); };
     c.addEventListener("dragstart",e=>{
@@ -1240,6 +1264,17 @@ function renderTray(){
   }
 }
 document.getElementById("trayClear").onclick=()=>{ staged=[]; renderTray(); };
+async function stagePaths(paths){
+  if(!TAURI||!paths||!paths.length) return;
+  for(const path of paths){
+    try{
+      const st=await inv("stat_path",{path});
+      staged.push({id:++stagedSeq,kind:st.is_dir?"pathdir":"path",path,name:st.name+(st.is_dir?"/":""),size:st.size||0,sel:false});
+    }catch{}
+  }
+  renderTray();
+  toast("📦 "+staged.length+" item(s) staged — drag a chip onto a device to send");
+}
 function stageFile(file){ if(!file||!file.size) return; staged.push({id:++stagedSeq,kind:"file",file,name:file.name,size:file.size,sel:false}); }
 function stageFolder(root,list){ staged.push({id:++stagedSeq,kind:"folder",root,list,name:root+"/",size:list.reduce((a,e)=>a+e.file.size,0),sel:false}); }
 async function stageDrop(dt){
@@ -1259,7 +1294,11 @@ function sendStagedTo(peer,dragId){
   let batch=staged.filter(x=>x.sel);
   if(!batch.length||(dragged&&!dragged.sel)) batch=dragged?[dragged]:[];
   if(!batch.length) return;
-  for(const it of batch){ if(it.kind==="file") sendFile(peer,it.file); else sendFolder(peer,it.root,it.list); }
+  for(const it of batch){
+    if(it.kind==="file") sendFile(peer,it.file);
+    else if(it.kind==="path"||it.kind==="pathdir") sendPath(peer,it.path);
+    else sendFolder(peer,it.root,it.list);
+  }
   staged=staged.filter(x=>!batch.includes(x)); renderTray();
 }
 
@@ -1922,11 +1961,17 @@ function updActUi(){
   const rows=document.getElementById("txList").children.length;
   document.getElementById("actEmpty").style.display=(rows||actHist.length)?"none":"";
   document.getElementById("txHead").style.display=rows?"":"none";
+  document.getElementById("stopAll").style.display=live?"":"none";
   const sub=document.getElementById("actSub");
   sub.textContent=live?(live+" running"+(pend?" · "+pend+" queued":"")):(pend?pend+" queued":(actHist.length?actHist.length+" recent":"nothing running"));
 }
 function openAct(on){ document.body.classList.toggle("actopen",on!==false); updActUi(); }
 document.getElementById("actBtn").onclick=()=>openAct(!document.body.classList.contains("actopen"));
+document.getElementById("stopAll").onclick=()=>{
+  const live=liveTx(); if(!live.length) return;
+  for(const t of live) cancelTx(t);
+  toast("⏹ Stopped "+live.length+" transfer(s)","r");
+};
 document.getElementById("actClose").onclick=()=>openAct(false);
 document.getElementById("actScrim").onclick=()=>openAct(false);
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") openAct(false); });
@@ -1942,8 +1987,7 @@ function renderTx(t){
   const isTextCard=t.text!=null;
   el.className="tx"+(isTextCard?" text "+t.dir:"");
   if(!isTextCard){
-    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="spd"></span><button class="btn sm pz" title="Pause / resume">⏸ Pause</button><button class="btn sm cx" title="Cancel this transfer on both sides">✕ Cancel</button></span></div><div class="st"></div><div class="bar"><i></i></div>`;
-    el.querySelector(".cx").onclick=()=>cancelTx(t);
+    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="spd"></span><button class="btn sm pz" title="Pause / resume">⏸</button></span></div><div class="st"></div><div class="bar"><i></i></div>`;
     el.querySelector(".pz").onclick=()=>setPause(t,!t.paused);
   } else {
     const CAP=20000, shown=t.text.length>CAP?t.text.slice(0,CAP):t.text;
@@ -2015,7 +2059,7 @@ function setPause(t,on){
   if(t.dir==="in") send({type:"pausetx",to:t.peer,tid:t.tid,on:t.paused});      // ask the sender to hold
   if(t.dir==="out"&&t.native&&TAURI) inv("tcp_pause",{key:txKey(t.peer,t.tid),on:t.paused}).catch(()=>{});
   updTx(t,t.paused?"⏸ Paused":(t.dir==="out"?"Resuming…":"Receiving…"));
-  const b=t.el&&t.el.querySelector(".pz"); if(b) b.textContent=t.paused?"▶ Resume":"⏸ Pause";
+  const b=t.el&&t.el.querySelector(".pz"); if(b){ b.textContent=t.paused?"▶":"⏸"; b.classList.toggle("on",t.paused); }
 }
 function onPauseTx(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t&&t.dir==="out") setPause(t,m.on); }
 function cancelTx(t){
@@ -2133,7 +2177,7 @@ if(TAURI) try{
     if(!target){
       const off=selectedOfflineDid();
       if(off){ queueOrSend(off,paths.map(x=>({kind:"path",path:x}))); return; }
-      toast("Drop it on a device card, or click a card to select it first","r"); return;
+      stagePaths(paths); return;
     }
     for(const p of paths) sendPath(target,p); });
 

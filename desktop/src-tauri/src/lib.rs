@@ -375,28 +375,41 @@ fn set_setting(app: AppHandle, state: State<'_, AppState>, key: String, value: s
 }
 
 #[tauri::command]
-fn pick_download_dir(app: AppHandle, state: State<'_, AppState>) -> Option<String> {
-    let picked = app.dialog().file().blocking_pick_folder()?;
-    let p = picked.to_string();
+async fn pick_download_dir(app: AppHandle) -> Option<String> {
+    let p = ask_folder(&app).await?;
     let _ = fs::create_dir_all(&p);
-    let mut s = state.settings.lock().unwrap();
-    s.download_dir = p.clone();
-    save_settings(&app, &s);
+    {
+        let state = app.state::<AppState>();
+        let mut s = state.settings.lock().unwrap();
+        s.download_dir = p.clone();
+        save_settings(&app, &s);
+    }
     Some(p)
 }
 
-#[tauri::command]
-fn pick_files(app: AppHandle) -> Vec<String> {
-    app.dialog()
-        .file()
-        .blocking_pick_files()
-        .map(|v| v.into_iter().map(|p| p.to_string()).collect())
-        .unwrap_or_default()
+// The dialogs must never block the main thread — on macOS that freezes the UI
+// and the picker misbehaves. Open them with the callback API and await the answer.
+async fn ask_files(app: &AppHandle) -> Vec<String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.dialog().file().pick_files(move |paths| { let _ = tx.send(paths); });
+    tauri::async_runtime::spawn_blocking(move || {
+        rx.recv().ok().flatten()
+            .map(|v| v.into_iter().map(|p| p.to_string()).collect::<Vec<_>>())
+            .unwrap_or_default()
+    }).await.unwrap_or_default()
 }
-#[tauri::command]
-fn pick_folder(app: AppHandle) -> Option<String> {
-    app.dialog().file().blocking_pick_folder().map(|p| p.to_string())
+async fn ask_folder(app: &AppHandle) -> Option<String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.dialog().file().pick_folder(move |p| { let _ = tx.send(p); });
+    tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten().map(|p| p.to_string()))
+        .await.ok().flatten()
 }
+
+#[tauri::command]
+async fn pick_files(app: AppHandle) -> Vec<String> { ask_files(&app).await }
+
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Option<String> { ask_folder(&app).await }
 
 #[tauri::command]
 fn open_download_dir(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
@@ -772,6 +785,9 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(true) = event {
+                let _ = window.unminimize();
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let st = window.app_handle().state::<AppState>();
                 let hide = st.settings.lock().unwrap().close_to_tray;
@@ -783,6 +799,14 @@ pub fn run() {
             stat_path, list_dir, read_range, recv_session, recv_write, recv_close, recv_abort,
             tcp_send, tcp_cancel, tcp_pause, show_main
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Dukto");
+        .build(tauri::generate_context!())
+        .expect("error while running Dukto")
+        .run(|app, event| {
+            // dock click (macOS) or a second launch (Windows) reopens the window
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus();
+                }
+            }
+        });
 }
