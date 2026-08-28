@@ -480,7 +480,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828174457";
+const BUILD="20260828174949";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -491,6 +491,14 @@ document.addEventListener("DOMContentLoaded",()=>document.body.appendChild(clipH
 if(document.body) document.body.appendChild(clipHelper);
 
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
+let lastRaise=0;
+function raiseApp(){                     // incoming transfer → bring Dukto to the front
+  if(!TAURI) return;
+  const now=Date.now();
+  if(now-lastRaise<4000) return;         // one raise per burst, not per file
+  lastRaise=now;
+  inv("show_main").catch(()=>{});
+}
 let pickerBusy=false;
 async function nativePick(cmd,args){          // never let two native dialogs stack
   if(pickerBusy){ toast("A file dialog is already open"); return null; }
@@ -1782,7 +1790,7 @@ function onPending(m){
   el.dataset.at=Date.now();
   document.getElementById("txList").appendChild(el);
   pendingIn.set(key,el);
-  openAct(true); updActUi();
+  openAct(true); updActUi(); raiseApp();
 }
 async function onOffer(m){
   clearPending(txKey(m.from,m.tid));
@@ -1791,7 +1799,7 @@ async function onOffer(m){
            chunks:[],got:0,state:"receiving",el:null,fromNick:m.fromNick,mt:meter(),lastUi:0,
            stream:null,next:0,pending:new Map(),seen:new Set()};
   transfers.set(key,t); renderTx(t);
-  if(t.kind!=="bench") sfx("incoming");
+  if(t.kind!=="bench"){ sfx("incoming"); raiseApp(); }
   // local senders (same network) auto-start; remote senders need the receiver's OK
   const e=rtc.get(m.from), pp=peers.find(x=>x.id===m.from);
   const isLocal=(e&&e.status==="local")||(pp&&sameNetworkIp(pp.ip,myMeta.ip));
@@ -1952,7 +1960,7 @@ async function onText(m){
   const key=txKey(m.from,m.tid); if(transfers.has(key)) return;
   const text=String(m.text||"");
   const t={tid:m.tid,peer:m.from,dir:"in",kind:"text",name:"Text from "+(m.fromNick||funName(m.from)),text,state:"done",el:null,mt:meter()};
-  transfers.set(key,t); renderTx(t); t.el.classList.add("done");
+  transfers.set(key,t); renderTx(t); t.el.classList.add("done"); raiseApp();
   send({type:"received",to:t.peer,tid:t.tid}); touchPeer(t.peer);
   const ok=await tryCopy(text);
   markCopied(t,ok);

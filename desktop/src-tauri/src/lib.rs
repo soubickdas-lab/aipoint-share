@@ -719,7 +719,18 @@ fn tcp_cancel(state: State<'_, AppState>, key: String) {
 
 #[tauri::command]
 fn show_main(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus(); }
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+        // Windows/macOS refuse a plain focus steal — ride always-on-top for a moment
+        let _ = w.set_always_on_top(true);
+        let w2 = w.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(900));
+            let _ = w2.set_always_on_top(false);
+        });
+    }
 }
 
 // ---------------------------------------------------------------- app setup
