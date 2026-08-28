@@ -430,7 +430,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828160011";
+const BUILD="20260828160406";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -1896,7 +1896,7 @@ function saveHist(){ localStorage.setItem("share_act",JSON.stringify(actHist.sli
 function pruneHist(){ const cut=Date.now()-24*3600*1000; const n=actHist.filter(x=>x.ts>cut); if(n.length!==actHist.length){ actHist=n; saveHist(); renderHist(); } }
 function histAdd(t,status){
   if(!t||t.kind==="bench") return;
-  actHist.unshift({name:t.name,size:t.size||0,dir:t.dir,peer:t.fromNick||peerName(t.peer),status,via:(t.viaTxt||"").replace("via ",""),ts:Date.now()});
+  actHist.unshift({name:t.name,size:t.size||0,dir:t.dir,peer:t.peerLabel||t.fromNick||peerName(t.peer),status,via:(t.viaTxt||"").replace("via ",""),ts:Date.now()});
   actHist=actHist.slice(0,200); saveHist(); renderHist();
 }
 function renderHist(){
@@ -1937,7 +1937,8 @@ renderHist();
 function renderTx(t){
   document.getElementById("txHead").style.display="";
   const el=document.createElement("div");
-  const who=t.dir==="out"?"→ "+peerName(t.peer):"← "+(t.fromNick||peerName(t.peer));
+  t.peerLabel=t.dir==="out"?((peers.find(p=>p.id===t.peer)||{}).nick||(savedPcs[(peers.find(p=>p.id===t.peer)||{}).did]||{}).nick||peerName(t.peer)):(t.fromNick||peerName(t.peer));
+  const who=(t.dir==="out"?"→ ":"← ")+t.peerLabel;
   const isTextCard=t.text!=null;
   el.className="tx"+(isTextCard?" text "+t.dir:"");
   if(!isTextCard){
