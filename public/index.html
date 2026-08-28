@@ -110,7 +110,6 @@ html.tauri #getApp{display:none}
 .compose.open{display:flex}
 .peer.sel{cursor:default}
 body.pagedrag::after{content:attr(data-msg);position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card2);border:2px dashed var(--green);border-radius:14px;padding:12px 22px;font-size:.95rem;font-weight:700;color:var(--green);z-index:50;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5);white-space:nowrap}
-body.pagedrag .peer{border-color:rgba(52,211,153,.45)}
 .compose textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text);font:inherit;font-size:.82rem;padding:8px 10px;resize:vertical;min-height:40px;max-height:200px;outline:none}
 .compose textarea:focus{border-color:var(--accent)}
 .compose .btn{padding:0 12px}
@@ -480,7 +479,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828174949";
+const BUILD="20260828175947";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -951,12 +950,12 @@ function renderPeers(){
       sb.onclick=e=>{e.stopPropagation(); const v=ta.value; if(v.trim()){sendText(p.id,v);ta.value="";}};
       ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();sb.click();} });
       ta.addEventListener("click",e=>e.stopPropagation());
-      card.addEventListener("click",e=>{ if(e.target.closest("button,textarea,input,.pf,.pd,.pt")) return; toggleSelect(p); });
+      card.addEventListener("click",e=>{ if(e.target.closest("button,a,textarea,input,select,label,.pf,.pd,.pt,.ps,.tsw,.starb,.compose,.trow")) return; toggleSelect(p); });
       card.addEventListener("dragover",e=>{e.preventDefault();card.classList.add("drag");});
       card.addEventListener("dragleave",e=>{ if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
       card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");
         const sid=e.dataTransfer.getData("droply/staged");
-        if(sid) sendStagedTo(p.id,sid); else handleDrop(p.id,e.dataTransfer);});
+        if(sid) sendStagedTo(p.id,sid); else routeFileDrop(p.id,e.dataTransfer);});
     }
     (savedPcs[p.did]?sgrid:grid).appendChild(card); // saved PCs get their own section
     const isSel=!!(pinnedDid&&p.did===pinnedDid), isRec=!isSel&&!selectedPeer()&&recent[p.did]&&order[0]===p;
@@ -1034,7 +1033,7 @@ function renderMini(){
     ch.addEventListener("dragleave",()=>ch.classList.remove("sel"));
     ch.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();
       const sid=e.dataTransfer.getData("droply/staged");
-      if(sid) sendStagedTo(p.id,sid); else handleDrop(p.id,e.dataTransfer);});
+      if(sid) sendStagedTo(p.id,sid); else routeFileDrop(p.id,e.dataTransfer);});
     mini.appendChild(ch);
   }
   if(!others.length) mini.innerHTML='<span style="color:var(--dim2);font-size:.78rem">No other devices online</span>';
@@ -1266,7 +1265,7 @@ function renderSaved(){
       delete savedPcs[did]; delete sendQueue[did]; saveSaved(); renderPeers();
       toast(`<b>${esc(info.nick)}</b> removed from Saved PCs`); };
     if(card.querySelector(".cq")) card.querySelector(".cq").onclick=e=>{ e.stopPropagation(); delete sendQueue[did]; renderSaved(); };
-    card.addEventListener("click",e=>{ if(e.target.closest("button,textarea,input,.pf,.pd,.pt")) return;
+    card.addEventListener("click",e=>{ if(e.target.closest("button,a,textarea,input,select,label,.pf,.pd,.pt,.ps,.tsw,.starb,.compose,.trow")) return;
       pinnedDid=(pinnedDid===did)?"":did; localStorage.setItem("share_pin",pinnedDid); renderPeers();
       if(pinnedDid===did) toast(`✅ <b>${esc(info.nick)}</b> selected — drops and Ctrl+V will queue for it`,"g"); });
     card.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();card.classList.add("drag");});
@@ -1278,7 +1277,7 @@ function renderSaved(){
         if(batch.length){ queueOrSend(did,batch.map(b=>b.kind==="file"?{kind:"file",file:b.file}:(b.kind==="path"||b.kind==="pathdir")?{kind:"path",path:b.path}:{kind:"folder",root:b.root,list:b.list}));
           staged=staged.filter(x=>!batch.includes(x)); renderTray(); }
         return; }
-      queueDrop(did,e.dataTransfer);});
+      routeFileDrop(null,e.dataTransfer)||queueDrop(did,e.dataTransfer);});
     sgrid.appendChild(card);
   }
   if(dirty) saveSaved();
@@ -1330,6 +1329,18 @@ async function stageDrop(dt){
   renderTray();
   toast(`📦 ${staged.length} item(s) staged — drag a chip onto a device to send`);
 }
+// While a device is selected it receives every dropped file — even when the
+// pointer lands on some other card. Only staged-chip drags target a card directly.
+function dropRoute(cardPeerId){
+  const selP=selectedPeer(); if(selP) return {peer:selP.id};
+  const off=selectedOfflineDid(); if(off) return {did:off};
+  return cardPeerId?{peer:cardPeerId}:null;
+}
+async function routeFileDrop(cardPeerId,dt){
+  const r=dropRoute(cardPeerId);
+  if(!r){ stageDrop(dt); return; }
+  if(r.peer) handleDrop(r.peer,dt); else queueDrop(r.did,dt);
+}
 function sendStagedTo(peer,dragId){
   const dragged=staged.find(x=>String(x.id)===String(dragId));
   let batch=staged.filter(x=>x.sel);
@@ -1347,10 +1358,11 @@ function sendStagedTo(peer,dragId){
 let dragDepth=0;
 document.addEventListener("dragenter",e=>{
   if(!(e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))) return;
+  dragDepth++;
   const nm=selectedName();
-  document.body.dataset.msg=nm?("📂  Drop anywhere → "+nm+"   (or drop on any device card)")
-                              :"📦  Drop anywhere to stage — then drag chips onto a device (or drop straight on a card)";
-  dragDepth++; document.body.classList.add("pagedrag");
+  if(!nm) return;                      // nothing selected → only the hovered card lights up
+  document.body.dataset.msg="📂  Drop anywhere → "+nm;
+  document.body.classList.add("pagedrag");
 });
 document.addEventListener("dragleave",()=>{ if(--dragDepth<=0){dragDepth=0;document.body.classList.remove("pagedrag");} });
 document.addEventListener("dragover",e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
@@ -1408,12 +1420,13 @@ clipHelper.addEventListener("paste",e=>{
 });
 document.addEventListener("click",e=>{
   if(!pinnedDid) return;
-  // only truly empty space clears the selection
+  // capture phase: the target is still attached here (a card click re-renders and
+  // would otherwise detach it, making a card click look like an empty-space click)
   if(e.target.closest(".peer,.mchip,.chip,.panel,#actPanel,#actScrim,#tray,.modal,.idcard,.tx,button,a,input,textarea,select,label")) return;
   const name=selectedName();
   pinnedDid=""; localStorage.setItem("share_pin",""); renderPeers();
   if(name) toast("Deselected <b>"+esc(name)+"</b>");
-});
+},true);
 document.addEventListener("paste",e=>{
   if(e.target===clipHelper||typingInField(e.target)) return;
   const cd=e.clipboardData; if(!cd) return;
@@ -2213,14 +2226,14 @@ if(TAURI) try{
   tauriListen("tauri://drag-drop",e=>{ const c=dropTarget(e.payload.position); clearHi();
     const paths=e.payload.paths||[];
     if(!paths.length) return;
-    if(c&&c.id.startsWith("soff-")){ // offline saved PC → queue, auto-send when it returns
+    if(!selectedPeer()&&c&&c.id.startsWith("soff-")){ // offline saved PC → queue, auto-send when it returns
       const did=c.id.slice(5); const q=sendQueue[did]=sendQueue[did]||[];
       for(const pth of paths) q.push({kind:"path",path:pth});
       renderSaved();
       toast(`📮 Queued for <b>${esc((savedPcs[did]||{}).nick||"saved PC")}</b> — auto-sends when it comes online. Keep Dukto running.`);
       return;
     }
-    const target=(c&&c.id.startsWith("peer-"))?c.id.slice(5):(selectedPeer()||{}).id;
+    const target=(selectedPeer()||{}).id||((c&&c.id.startsWith("peer-"))?c.id.slice(5):undefined);
     if(!target){
       const off=selectedOfflineDid();
       if(off){ queueOrSend(off,paths.map(x=>({kind:"path",path:x}))); return; }
