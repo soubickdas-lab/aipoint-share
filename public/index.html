@@ -395,7 +395,6 @@ h2.sec{margin:22px 0 12px}
       <label class="mrow"><span>Device name</span><input id="sNick" maxlength="24" placeholder="e.g. Soubick PC"></label>
       <label class="mrow"><span>Download folder</span><span class="mpath" id="sDir">…</span><button class="btn sm" id="sPick">Change…</button><button class="btn sm" id="sOpen">Open</button></label>
       <label class="mrow chk"><input type="checkbox" id="sAuto"><span><b>Start automatically when computer starts</b><br><small>Runs in the tray at login so files can arrive any time</small></span></label>
-      <label class="mrow chk"><input type="checkbox" id="sMin"><span><b>Start minimized to tray</b></span></label>
       <label class="mrow chk"><input type="checkbox" id="sTray"><span><b>Keep running in tray when window is closed</b></span></label>
       <div class="mrow"><span>App updates</span><button class="btn sm" id="sCheckUpd">🔄 Check for updates</button><span id="sUpdSt" style="color:var(--dim2);font-size:.72rem"></span></div>
       <div class="mfoot"><span id="sVer"></span><span id="sLan"></span></div>
@@ -481,7 +480,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828163023";
+const BUILD="20260828174457";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -895,9 +894,8 @@ function selectedName(){
   const off=selectedOfflineDid(); return off?savedPcs[off].nick:null;
 }
 function sortedPeers(){
+  // order never depends on the selection — a selected card stays where it is
   return [...peers].sort((a,b)=>{
-    const ap=pinnedDid&&a.did===pinnedDid?1:0, bp=pinnedDid&&b.did===pinnedDid?1:0;
-    if(ap!==bp) return bp-ap;
     const ar=recent[a.did]||0, br=recent[b.did]||0;
     if(ar!==br) return br-ar;
     return a.joined-b.joined;
@@ -1399,6 +1397,14 @@ clipHelper.addEventListener("paste",e=>{
   const txt=cd?cd.getData("text/plain"):"";
   if(txt&&txt.trim()){ e.preventDefault(); pasteHandled=true; clipHelper.value=""; clipHelper.blur(); pasteInto(txt,null); }
   // otherwise let it land in the textarea; the keydown timer reads it
+});
+document.addEventListener("click",e=>{
+  if(!pinnedDid) return;
+  // only truly empty space clears the selection
+  if(e.target.closest(".peer,.mchip,.chip,.panel,#actPanel,#actScrim,#tray,.modal,.idcard,.tx,button,a,input,textarea,select,label")) return;
+  const name=selectedName();
+  pinnedDid=""; localStorage.setItem("share_pin",""); renderPeers();
+  if(name) toast("Deselected <b>"+esc(name)+"</b>");
 });
 document.addEventListener("paste",e=>{
   if(e.target===clipHelper||typingInField(e.target)) return;
@@ -2220,7 +2226,7 @@ if(TAURI) try{
   async function openSettings(){
     try{ appInfo=await inv("get_settings"); }catch{ return; }
     $("sNick").value=localStorage.getItem("share_nick")||appInfo.nick||"";
-    $("sDir").textContent=appInfo.download_dir; $("sAuto").checked=!!appInfo.autostart; $("sMin").checked=!!appInfo.start_minimized; $("sTray").checked=!!appInfo.close_to_tray;
+    $("sDir").textContent=appInfo.download_dir; $("sAuto").checked=!!appInfo.autostart; $("sTray").checked=!!appInfo.close_to_tray;
     $("sVer").textContent="Dukto v"+appInfo.version+" · "+appInfo.os;
     $("sLan").textContent="LAN: "+(appInfo.ips||[]).join(", ")+" · port "+appInfo.port;
     $("settingsModal").style.display="";
@@ -2232,7 +2238,6 @@ if(TAURI) try{
   $("sPick").onclick=async()=>{ const p=await nativePick("pick_download_dir"); if(p) $("sDir").textContent=p; };
   $("sOpen").onclick=()=>inv("open_download_dir");
   $("sAuto").onchange=async()=>{ try{ await inv("set_setting",{key:"autostart",value:$("sAuto").checked}); toast($("sAuto").checked?"✅ Will start automatically at login":"Autostart off","g"); }catch(err){ toast("Autostart failed: "+esc(String(err)),"r"); $("sAuto").checked=!$("sAuto").checked; } };
-  $("sMin").onchange=()=>inv("set_setting",{key:"start_minimized",value:$("sMin").checked});
   $("sTray").onchange=()=>inv("set_setting",{key:"close_to_tray",value:$("sTray").checked});
   // in-app updates (Tauri updater): check on launch + every 4h; button click installs & restarts
   let pendingUpdate=null;

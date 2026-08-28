@@ -780,7 +780,7 @@ pub fn run() {
             tb.build(app)?;
 
             if let Some(w) = app.get_webview_window("main") {
-                if start_minimized_flag || settings.start_minimized { let _ = w.hide(); } else { let _ = w.show(); }
+                if start_minimized_flag { let _ = w.hide(); } else { let _ = w.show(); }
             }
             Ok(())
         })
@@ -805,9 +805,13 @@ pub fn run() {
             // Reopen (dock icon click) only exists on macOS
             #[cfg(target_os = "macos")]
             {
+                // Dock icon click: macOS sends Reopen — bring the window back whether
+                // it was hidden to the tray or just minimised.
                 if let tauri::RunEvent::Reopen { .. } = _event {
-                    if let Some(w) = _app.get_webview_window("main") {
-                        let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus();
+                    for w in _app.webview_windows().values() {
+                        let _ = w.unminimize();
+                        let _ = w.show();
+                        let _ = w.set_focus();
                     }
                 }
             }
