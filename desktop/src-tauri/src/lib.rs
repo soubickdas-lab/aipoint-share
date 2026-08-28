@@ -801,11 +801,14 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running Dukto")
-        .run(|app, event| {
-            // dock click (macOS) or a second launch (Windows) reopens the window
-            if let tauri::RunEvent::Reopen { .. } = event {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus();
+        .run(move |_app, _event| {
+            // Reopen (dock icon click) only exists on macOS
+            #[cfg(target_os = "macos")]
+            {
+                if let tauri::RunEvent::Reopen { .. } = _event {
+                    if let Some(w) = _app.get_webview_window("main") {
+                        let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus();
+                    }
                 }
             }
         });
