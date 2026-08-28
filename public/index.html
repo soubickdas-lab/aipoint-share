@@ -281,6 +281,36 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
 [data-theme="light"] .toast{background:var(--card2)}
 [data-theme="light"] body::before{opacity:.7}
 @media(max-width:700px){.wrap>header{margin:0 -12px 14px;padding:10px 12px}}
+
+/* ===== activity drawer (notification-style, glassy) ===== */
+.hamb{position:relative;font-size:1rem;line-height:1;padding:6px 11px}
+.abadge{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;border-radius:99px;background:var(--accent);color:#fff;font-size:.62rem;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 55%,transparent)}
+#actScrim{position:fixed;inset:0;background:rgba(4,7,14,.35);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .25s;z-index:60}
+body.actopen #actScrim{opacity:1;pointer-events:auto}
+#actPanel{position:fixed;top:0;right:0;height:100dvh;width:min(400px,92vw);z-index:61;display:flex;flex-direction:column;
+  background:color-mix(in srgb,var(--card2) 72%,transparent);
+  backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);
+  border-left:1px solid color-mix(in srgb,var(--border) 80%,transparent);
+  box-shadow:-24px 0 60px rgba(0,0,0,.35);
+  transform:translateX(104%);transition:transform .3s cubic-bezier(.22,.9,.28,1)}
+body.actopen #actPanel{transform:none}
+#actPanel .dhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:16px 16px 12px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent)}
+#actPanel .dtitle{font-size:1.05rem;font-weight:800;letter-spacing:-.02em}
+#actPanel .dsub{font-size:.72rem;color:var(--dim2);margin-top:2px}
+#actPanel .dbody{flex:1;overflow-y:auto;padding:12px 14px 22px}
+#actPanel .dsec{font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--dim2);margin:10px 2px 8px}
+#actPanel .tx{background:color-mix(in srgb,var(--card) 70%,transparent);border-color:color-mix(in srgb,var(--border) 75%,transparent)}
+#actPanel .dempty{color:var(--dim2);font-size:.82rem;text-align:center;padding:40px 10px;line-height:1.6}
+#actPanel .dempty span{font-size:.74rem;color:var(--dim2);opacity:.75}
+.hrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;font-size:.78rem;
+  background:color-mix(in srgb,var(--card) 45%,transparent);border:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-bottom:6px}
+.hrow .hn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.hrow .hm{color:var(--dim2);font-size:.68rem;white-space:nowrap}
+.hrow.ok{border-left:3px solid var(--green)}
+.hrow.bad{border-left:3px solid var(--red)}
+.tx .pz{border-color:color-mix(in srgb,var(--amber) 45%,transparent);color:var(--amber)}
+.tx.paused{opacity:.75}
+@media(max-width:560px){#actPanel{width:100vw}}
 </style>
 </head>
 <body>
@@ -290,6 +320,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
     <div style="display:flex;gap:8px;align-items:center">
       <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
       <button class="btn sm" id="themeBtn" title="Light / dark theme">🌓</button>
+      <button class="btn sm hamb" id="actBtn" title="Activity — transfers and last 24h">☰<span class="abadge" id="actBadge" style="display:none">0</span></button>
       <button class="btn sm" id="refreshBtn" title="Reconnect &amp; refresh device list">🔄 Refresh</button>
       <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
       <button class="btn sm" id="updBtn" style="display:none;border-color:rgba(52,211,153,.5);color:var(--green)">⬆ Update available</button>
@@ -349,8 +380,6 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
     <div class="empty" id="noPeers">No other devices online right now.<br>Open this site on another device or phone — its card will appear here.</div>
   </div>
 
-  <h2 class="sec chead" id="txHead" style="display:none"><span id="actToggle"><span class="chev" id="actChev">▾</span> Activity</span><button class="btn sm" id="clearAct">Clear</button></h2>
-  <div id="txList"></div>
   </main>
   <aside class="colR">
     <div id="commonBox" class="panel">
@@ -372,6 +401,23 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
 
   <footer>Dukto · Local = direct LAN transfer ⚡ · Remote = P2P / relay · files never stored on any server · <a href="https://aipoint.online">aipoint.online</a></footer>
 </div>
+<div id="actScrim"></div>
+<aside id="actPanel" aria-label="Activity">
+  <div class="dhead">
+    <div><div class="dtitle">Activity</div><div class="dsub" id="actSub">nothing running</div></div>
+    <div style="display:flex;gap:6px">
+      <button class="btn sm" id="clearAct" title="Clear finished items">Clear</button>
+      <button class="btn sm" id="actClose" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="dbody">
+    <div class="dsec" id="txHead" style="display:none"><span id="actToggle">Now</span></div>
+    <div id="txList"></div>
+    <div class="dsec" id="histHead" style="display:none">Recent · last 24h</div>
+    <div id="histList"></div>
+    <div id="actEmpty" class="dempty">No transfers yet.<br><span>Drop a file on a device — progress shows up here.</span></div>
+  </div>
+</aside>
 <div id="toasts"></div>
 
 <script>
@@ -384,7 +430,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260826140044";
+const BUILD="20260828160011";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -749,6 +795,7 @@ function handleJson(m){
     case "text": onText(m); break;
     case "creq": onCreq(m); break;
     case "pending": onPending(m); break;
+    case "pausetx": onPauseTx(m); break;
     case "clearcommon":
       myCommon=[]; commonNotes=[]; commonSel.clear();
       hiddenNotes={}; localStorage.setItem("share_note_hide","{}");
@@ -1290,6 +1337,7 @@ document.addEventListener("paste",e=>{
 document.getElementById("clearAct").onclick=()=>{
   for(const [k,t] of transfers) if(t.state==="done"||t.state==="fail"){ t.el&&t.el.remove(); transfers.delete(k); }
   for(const [k] of [...pendingIn]) clearPending(k);
+  actHist=[]; saveHist(); renderHist(); updActUi();
   if(!document.getElementById("txList").children.length) document.getElementById("txHead").style.display="none";
 };
 
@@ -1522,6 +1570,7 @@ function finishOut(t,note){
   t.el&&t.el.classList.add("done");
   if(t.kind!=="bench") sfx("done");
   closePipes(t); outDone(t.peer);
+  histAdd(t,"done"); updActUi();
   toast(`<b>${esc(t.name)}</b> delivered ✓`,"g");
 }
 function onReceived(m){
@@ -1558,6 +1607,7 @@ async function pump(t){
     let bo=0;
     while(bo<block.byteLength){
       if(t.state!=="sending") return;
+      if(t.paused){ await new Promise(r=>{ t.resume=r; setTimeout(r,400); }); continue; }
       const e=rtc.get(t.peer);
       // candidate transports: DataChannels (LAN / P2P) + parallel cloud pipes; pick the least loaded
       const isLocal=!!(e&&e.status==="local")||peerIsLan(t.peer);
@@ -1650,9 +1700,9 @@ function onPending(m){
   el.className="tx pend";
   el.innerHTML=`<div class="row"><span class="fn">⏳ ${esc(m.name)} <span class="peer">← ${esc(m.fromNick||peerName(m.from))} · ${fmtSize(m.size)}</span></span><span class="st" style="margin:0">in queue</span></div>`;
   el.dataset.at=Date.now();
-  document.getElementById("txHead").style.display="";
   document.getElementById("txList").appendChild(el);
   pendingIn.set(key,el);
+  openAct(true); updActUi();
 }
 async function onOffer(m){
   clearPending(txKey(m.from,m.tid));
@@ -1770,6 +1820,7 @@ async function finishReceive(t){
   if(t.disk){
     await t.disk.wq; try{ await inv("recv_close",{sid:t.disk.sid}); }catch{}
     diskBySid.delete(t.disk.sid);
+    histAdd(t,"done"); updActUi();
     updTx(t,`Saved ✓ · ${secs.toFixed(1)}s · <a href="#" class="reveal">📂 show in folder</a>`);
     t.el.querySelector(".reveal").onclick=e=>{e.preventDefault(); inv("reveal_path",{path:t.disk.path}).catch(()=>inv("open_download_dir"));};
     t.el.classList.add("done");
@@ -1785,7 +1836,7 @@ async function finishReceive(t){
     setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
   updTx(t,`Downloaded ✓ · ${secs.toFixed(1)}s`);
-  t.el.classList.add("done");
+  t.el.classList.add("done"); histAdd(t,"done"); updActUi();
   toast(`✅ <b>${esc(t.name)}</b> downloaded`,"g");
 }
 
@@ -1839,6 +1890,49 @@ window.addEventListener("focus",retryCopy);
 document.addEventListener("pointerdown",retryCopy,{capture:true});
 document.addEventListener("keydown",retryCopy,{capture:true});
 
+/* ---------- activity drawer: slides in from the right, keeps 24h of history ---------- */
+let actHist=[]; try{ actHist=JSON.parse(localStorage.getItem("share_act")||"[]")||[]; }catch{}
+function saveHist(){ localStorage.setItem("share_act",JSON.stringify(actHist.slice(0,200))); }
+function pruneHist(){ const cut=Date.now()-24*3600*1000; const n=actHist.filter(x=>x.ts>cut); if(n.length!==actHist.length){ actHist=n; saveHist(); renderHist(); } }
+function histAdd(t,status){
+  if(!t||t.kind==="bench") return;
+  actHist.unshift({name:t.name,size:t.size||0,dir:t.dir,peer:t.fromNick||peerName(t.peer),status,via:(t.viaTxt||"").replace("via ",""),ts:Date.now()});
+  actHist=actHist.slice(0,200); saveHist(); renderHist();
+}
+function renderHist(){
+  pruneNothing=0;
+  const box=document.getElementById("histList"); if(!box) return;
+  box.innerHTML="";
+  for(const h of actHist){
+    const el=document.createElement("div");
+    el.className="hrow "+(h.status==="done"?"ok":"bad");
+    el.innerHTML=`<span>${h.dir==="out"?"📤":"📥"}</span><span class="hn">${esc(h.name)}</span><span class="hm">${h.size?fmtSize(h.size)+" · ":""}${esc(h.peer||"")} · ${fmtSince(h.ts)} ago</span>`;
+    box.appendChild(el);
+  }
+  document.getElementById("histHead").style.display=actHist.length?"":"none";
+  updActUi();
+}
+let pruneNothing=0;
+setInterval(pruneHist,60000);
+function liveTx(){ return [...transfers.values()].filter(t=>t.state==="sending"||t.state==="receiving"||t.state==="offer"||t.state==="ask"); }
+function updActUi(){
+  const live=liveTx().length, pend=pendingIn.size;
+  const b=document.getElementById("actBadge");
+  b.style.display=(live+pend)?"":"none"; b.textContent=live+pend;
+  const rows=document.getElementById("txList").children.length;
+  document.getElementById("actEmpty").style.display=(rows||actHist.length)?"none":"";
+  document.getElementById("txHead").style.display=rows?"":"none";
+  const sub=document.getElementById("actSub");
+  sub.textContent=live?(live+" running"+(pend?" · "+pend+" queued":"")):(pend?pend+" queued":(actHist.length?actHist.length+" recent":"nothing running"));
+}
+function openAct(on){ document.body.classList.toggle("actopen",on!==false); updActUi(); }
+document.getElementById("actBtn").onclick=()=>openAct(!document.body.classList.contains("actopen"));
+document.getElementById("actClose").onclick=()=>openAct(false);
+document.getElementById("actScrim").onclick=()=>openAct(false);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") openAct(false); });
+setInterval(updActUi,2000);
+renderHist();
+
 /* ---------- activity ui ---------- */
 function renderTx(t){
   document.getElementById("txHead").style.display="";
@@ -1847,8 +1941,9 @@ function renderTx(t){
   const isTextCard=t.text!=null;
   el.className="tx"+(isTextCard?" text "+t.dir:"");
   if(!isTextCard){
-    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="spd"></span><button class="btn sm cx" title="Cancel this transfer on both sides">✕ Cancel</button></span></div><div class="st"></div><div class="bar"><i></i></div>`;
+    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="spd"></span><button class="btn sm pz" title="Pause / resume">⏸ Pause</button><button class="btn sm cx" title="Cancel this transfer on both sides">✕ Cancel</button></span></div><div class="st"></div><div class="bar"><i></i></div>`;
     el.querySelector(".cx").onclick=()=>cancelTx(t);
+    el.querySelector(".pz").onclick=()=>setPause(t,!t.paused);
   } else {
     const CAP=20000, shown=t.text.length>CAP?t.text.slice(0,CAP):t.text;
     el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📝":"📋"} ${esc(t.name)} <span class="peer">${esc(who)}</span></span></div>
@@ -1857,6 +1952,7 @@ function renderTx(t){
     el.querySelector(".cp").onclick=async()=>{ const ok=await tryCopy(t.text); markCopied(t,ok); if(ok) toast("Copied ✓","g"); };
   }
   t.el=el; document.getElementById("txList").prepend(el);
+  openAct(true); updActUi();
 }
 function updTx(t,txt){
   if(!t.el) return;
@@ -1871,6 +1967,7 @@ function failTx(t,why){
   if(t.disk){ diskBySid.delete(t.disk.sid); inv("recv_abort",{sid:t.disk.sid}).catch(()=>{}); }
   if(t.dir==="out"&&t.native&&TAURI) inv("tcp_cancel",{key:txKey(t.peer,t.tid)}).catch(()=>{});
   if(t.el){t.el.classList.add("fail");updTx(t,"Failed — "+why);}
+  histAdd(t,"fail"); updActUi();
 }
 function failTxByTid(tid,why){ for(const t of transfers.values()) if(t.tid===tid&&t.state!=="done") failTx(t,why); }
 
@@ -1909,6 +2006,17 @@ document.getElementById("refreshBtn").onclick=()=>{
 };
 
 /* ---------- cancel (both sides) ---------- */
+function setPause(t,on){
+  if(!t||t.state==="done"||t.state==="fail") return;
+  t.paused=!!on;
+  if(t.el) t.el.classList.toggle("paused",t.paused);
+  if(!t.paused&&t.resume){ const r=t.resume; t.resume=null; r(); }
+  if(t.dir==="in") send({type:"pausetx",to:t.peer,tid:t.tid,on:t.paused});      // ask the sender to hold
+  if(t.dir==="out"&&t.native&&TAURI) inv("tcp_pause",{key:txKey(t.peer,t.tid),on:t.paused}).catch(()=>{});
+  updTx(t,t.paused?"⏸ Paused":(t.dir==="out"?"Resuming…":"Receiving…"));
+  const b=t.el&&t.el.querySelector(".pz"); if(b) b.textContent=t.paused?"▶ Resume":"⏸ Pause";
+}
+function onPauseTx(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t&&t.dir==="out") setPause(t,m.on); }
 function cancelTx(t){
   if(t.state==="done"||t.state==="fail") return;
   send({type:"cancel",to:t.peer,tid:t.tid});

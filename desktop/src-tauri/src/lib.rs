@@ -93,6 +93,7 @@ pub struct AppState {
     next_id: AtomicU64,
     tcp_port: AtomicU64,
     cancel_tx: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    pause_tx: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 #[derive(Deserialize)]
@@ -570,7 +571,7 @@ fn connect_any(hosts: &[String], port: u16) -> Option<TcpStream> {
     None
 }
 
-fn send_segments(mut s: TcpStream, token: &str, segs: Vec<Segment>, sent: Arc<AtomicU64>, cancel: Arc<AtomicBool>) -> Result<(), String> {
+fn send_segments(mut s: TcpStream, token: &str, segs: Vec<Segment>, sent: Arc<AtomicU64>, cancel: Arc<AtomicBool>, pause: Arc<AtomicBool>) -> Result<(), String> {
     use std::io::{Seek, SeekFrom};
     let _ = s.set_nodelay(true);
     let mut buf = vec![0u8; 1024 * 1024];
@@ -589,6 +590,9 @@ fn send_segments(mut s: TcpStream, token: &str, segs: Vec<Segment>, sent: Arc<At
         let mut remaining = seg.len;
         while remaining > 0 {
             if cancel.load(Ordering::SeqCst) { return Err("cancelled".into()); }
+            while pause.load(Ordering::SeqCst) && !cancel.load(Ordering::SeqCst) {
+                thread::sleep(Duration::from_millis(80));
+            }
             let want = std::cmp::min(remaining, buf.len() as u64) as usize;
             let n = f.read(&mut buf[..want]).map_err(|e| e.to_string())?;
             if n == 0 { return Err("file shrank while sending".into()); }
@@ -605,7 +609,12 @@ fn send_segments(mut s: TcpStream, token: &str, segs: Vec<Segment>, sent: Arc<At
 #[tauri::command]
 async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, token: String, entries: Vec<SendEntry>, streams: Option<u32>) -> Result<(), String> {
     let cancel = Arc::new(AtomicBool::new(false));
-    app.state::<AppState>().cancel_tx.lock().unwrap().insert(key.clone(), cancel.clone());
+    let pause = Arc::new(AtomicBool::new(false));
+    {
+        let st = app.state::<AppState>();
+        st.cancel_tx.lock().unwrap().insert(key.clone(), cancel.clone());
+        st.pause_tx.lock().unwrap().insert(key.clone(), pause.clone());
+    }
     let key2 = key.clone();
     let app2 = app.clone();
     let res = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
@@ -665,8 +674,8 @@ async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, to
                     TcpStream::connect_timeout(&a, Duration::from_millis(3000)).map_err(|e| e.to_string())?
                 }
             };
-            let token = token.clone(); let sent = sent.clone(); let cancel = cancel.clone();
-            handles.push(thread::spawn(move || send_segments(stream, &token, bucket, sent, cancel)));
+            let token = token.clone(); let sent = sent.clone(); let cancel = cancel.clone(); let pause = pause.clone();
+            handles.push(thread::spawn(move || send_segments(stream, &token, bucket, sent, cancel, pause)));
         }
         let mut err = None;
         for h in handles {
@@ -677,8 +686,17 @@ async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, to
     })
     .await
     .map_err(|e| e.to_string())?;
-    app.state::<AppState>().cancel_tx.lock().unwrap().remove(&key);
+    {
+        let st = app.state::<AppState>();
+        st.cancel_tx.lock().unwrap().remove(&key);
+        st.pause_tx.lock().unwrap().remove(&key);
+    }
     res
+}
+
+#[tauri::command]
+fn tcp_pause(state: State<'_, AppState>, key: String, on: bool) {
+    if let Some(p) = state.pause_tx.lock().unwrap().get(&key) { p.store(on, Ordering::SeqCst); }
 }
 
 #[tauri::command]
@@ -720,6 +738,7 @@ pub fn run() {
                 next_id: AtomicU64::new(0),
                 tcp_port: AtomicU64::new(port as u64),
                 cancel_tx: Mutex::new(HashMap::new()),
+                pause_tx: Mutex::new(HashMap::new()),
             });
 
             // tray
@@ -762,7 +781,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings, set_setting, pick_download_dir, pick_files, pick_folder, open_download_dir, reveal_path,
             stat_path, list_dir, read_range, recv_session, recv_write, recv_close, recv_abort,
-            tcp_send, tcp_cancel, show_main
+            tcp_send, tcp_cancel, tcp_pause, show_main
         ])
         .run(tauri::generate_context!())
         .expect("error while running Dukto");

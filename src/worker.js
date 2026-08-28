@@ -14,7 +14,7 @@ function genId() {
 // Message types a client may ask us to route to another peer verbatim.
 // "rtc" carries WebRTC signaling (sdp offers/answers, ICE candidates) so peers
 // can negotiate a direct LAN/P2P DataChannel; file bytes then bypass us.
-const ROUTED = new Set(["offer", "accept", "decline", "ack", "received", "cancel", "rtc", "text", "pipes", "creq", "pending"]);
+const ROUTED = new Set(["offer", "accept", "decline", "ack", "received", "cancel", "rtc", "text", "pipes", "creq", "pending", "pausetx"]);
 
 export class ShareRoom {
   constructor(ctx, env) {
