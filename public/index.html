@@ -334,6 +334,33 @@ body.actopen .hamb{border-color:var(--accent);background:color-mix(in srgb,var(-
 .logo .mark{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:.95rem;box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 40%,transparent)}
 .peer .pname{letter-spacing:-.01em}
+
+/* ===== cleanup pass ===== */
+.wrap{padding-top:0}
+.wrap>header{padding:14px 18px;margin-bottom:20px}
+.wrap>header>div:last-child{gap:7px}
+.btn.sm{padding:6px 11px;font-size:.75rem}
+.pill{font-size:.72rem;padding:6px 12px}
+.idcard{padding:16px 18px;gap:14px}
+.avatar{width:54px;height:54px;border-radius:14px;font-size:1.6rem}
+.idname{font-size:1.05rem}
+.idmeta{font-size:.78rem;gap:12px}
+.panel{padding:15px 16px}
+.peer{padding:15px}
+.pavatar{width:40px;height:40px;border-radius:11px}
+.pname{font-size:.92rem}
+.pinfo{font-size:.72rem;margin-top:9px;gap:3px 10px}
+.phint{margin-top:11px;padding:10px;font-size:.72rem}
+.tx{padding:11px 13px}
+.tx .fn{font-size:.82rem}
+.tx .spd{font-size:1.3rem}
+.tx .st{font-size:.71rem}
+.trow{margin-top:8px}
+.hint{font-size:.7rem}
+h2.sec{margin:22px 0 12px}
+.grid{gap:13px}
+#actPanel .dhead{padding:15px 15px 11px}
+#actPanel .dbody{padding:10px 13px 20px}
 </style>
 </head>
 <body>
@@ -343,11 +370,11 @@ body.actopen .hamb{border-color:var(--accent);background:color-mix(in srgb,var(-
     <div style="display:flex;gap:8px;align-items:center">
       <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting…</span></span>
       <button class="btn sm" id="themeBtn" title="Light / dark theme">🌓</button>
-      <button class="hamb" id="actBtn" title="Activity — transfers and last 24h" aria-label="Activity"><span class="hbars"><i></i><i></i><i></i></span><span class="abadge" id="actBadge" style="display:none">0</span></button>
       <button class="btn sm" id="refreshBtn" title="Reconnect &amp; refresh device list">🔄 Refresh</button>
       <a class="pill" id="getApp" href="https://github.com/soubickdas-lab/aipoint-share/releases/latest" target="_blank" rel="noopener" style="text-decoration:none">⬇ Desktop app</a>
       <button class="btn sm" id="updBtn" style="display:none;border-color:rgba(52,211,153,.5);color:var(--green)">⬆ Update available</button>
       <button class="btn sm" id="settingsBtn" style="display:none">⚙️ Settings</button>
+      <button class="hamb" id="actBtn" title="Activity — transfers and last 24h" aria-label="Activity"><span class="hbars"><i></i><i></i><i></i></span><span class="abadge" id="actBadge" style="display:none">0</span></button>
     </div>
   </header>
 
@@ -454,7 +481,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828161221";
+const BUILD="20260828163023";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -465,6 +492,14 @@ document.addEventListener("DOMContentLoaded",()=>document.body.appendChild(clipH
 if(document.body) document.body.appendChild(clipHelper);
 
 const TAURI=!!(window.__TAURI__&&window.__TAURI__.core);
+let pickerBusy=false;
+async function nativePick(cmd,args){          // never let two native dialogs stack
+  if(pickerBusy){ toast("A file dialog is already open"); return null; }
+  pickerBusy=true;
+  try{ return await inv(cmd,args||{}); }
+  catch(err){ toast("Picker failed: "+esc(String(err)),"r"); return null; }
+  finally{ setTimeout(()=>{pickerBusy=false;},250); }
+}
 const inv=TAURI?(c,a,o)=>window.__TAURI__.core.invoke(c,a,o):null;
 const tauriListen=TAURI?(n,f)=>window.__TAURI__.event.listen(n,f):null;
 let appInfo=null; // {version, port, ips, download_dir, ...}
@@ -897,8 +932,8 @@ function renderPeers(){
         <input type="file" multiple hidden class="fi"><input type="file" webkitdirectory directory multiple hidden class="di">`;
       grid.appendChild(card);
       const fi=card.querySelector(".fi"), di=card.querySelector(".di");
-      card.querySelector(".pf").onclick=async e=>{e.stopPropagation(); if(TAURI){ const paths=await inv("pick_files"); for(const x of paths||[]) sendPath(p.id,x); } else fi.click();};
-      card.querySelector(".pd").onclick=async e=>{e.stopPropagation(); if(TAURI){ const x=await inv("pick_folder"); if(x) sendPath(p.id,x); } else di.click();};
+      card.querySelector(".pf").onclick=async e=>{e.stopPropagation(); if(TAURI){ const paths=await nativePick("pick_files"); for(const x of paths||[]) sendPath(p.id,x); } else fi.click();};
+      card.querySelector(".pd").onclick=async e=>{e.stopPropagation(); if(TAURI){ const x=await nativePick("pick_folder"); if(x) sendPath(p.id,x); } else di.click();};
       fi.onchange=e=>{for(const f of e.target.files) sendFile(p.id,f); e.target.value="";};
       di.onchange=e=>{ const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
         const root=(files[0].webkitRelativePath||files[0].name).split("/")[0];
@@ -1211,10 +1246,10 @@ function renderSaved(){
       ta.value=""; delete offDraft[did]; queueOrSend(did,[{kind:"text",text:v}]); };
     card.querySelector(".pt").onclick=e=>{ e.stopPropagation(); offOpen[did]=!offOpen[did]; comp.classList.toggle("open",offOpen[did]); if(offOpen[did]) ta.focus(); };
     card.querySelector(".pf").onclick=async e=>{ e.stopPropagation();
-      if(TAURI){ const paths=await inv("pick_files"); queueOrSend(did,(paths||[]).map(x=>({kind:"path",path:x}))); }
+      if(TAURI){ const paths=await nativePick("pick_files"); queueOrSend(did,(paths||[]).map(x=>({kind:"path",path:x}))); }
       else fi.click(); };
     card.querySelector(".pd").onclick=async e=>{ e.stopPropagation();
-      if(TAURI){ const x=await inv("pick_folder"); if(x) queueOrSend(did,[{kind:"path",path:x}]); }
+      if(TAURI){ const x=await nativePick("pick_folder"); if(x) queueOrSend(did,[{kind:"path",path:x}]); }
       else di.click(); };
     fi.onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; queueOrSend(did,fs.filter(f=>f&&f.size).map(f=>({kind:"file",file:f}))); };
     di.onchange=e=>{ const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
@@ -1987,8 +2022,7 @@ function renderTx(t){
   const isTextCard=t.text!=null;
   el.className="tx"+(isTextCard?" text "+t.dir:"");
   if(!isTextCard){
-    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span style="display:flex;gap:8px;align-items:center"><span class="spd"></span><button class="btn sm pz" title="Pause / resume">⏸</button></span></div><div class="st"></div><div class="bar"><i></i></div>`;
-    el.querySelector(".pz").onclick=()=>setPause(t,!t.paused);
+    el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📤":"📥"} ${esc(t.name)} <span class="peer">${esc(who)} · ${fmtSize(t.size)}${t.label?" · "+esc(t.label):""}</span></span><span class="spd"></span></div><div class="st"></div><div class="bar"><i></i></div>`;
   } else {
     const CAP=20000, shown=t.text.length>CAP?t.text.slice(0,CAP):t.text;
     el.innerHTML=`<div class="row"><span class="fn">${t.dir==="out"?"📝":"📋"} ${esc(t.name)} <span class="peer">${esc(who)}</span></span></div>
@@ -2059,7 +2093,6 @@ function setPause(t,on){
   if(t.dir==="in") send({type:"pausetx",to:t.peer,tid:t.tid,on:t.paused});      // ask the sender to hold
   if(t.dir==="out"&&t.native&&TAURI) inv("tcp_pause",{key:txKey(t.peer,t.tid),on:t.paused}).catch(()=>{});
   updTx(t,t.paused?"⏸ Paused":(t.dir==="out"?"Resuming…":"Receiving…"));
-  const b=t.el&&t.el.querySelector(".pz"); if(b){ b.textContent=t.paused?"▶":"⏸"; b.classList.toggle("on",t.paused); }
 }
 function onPauseTx(m){ const t=transfers.get(txKey(m.from,m.tid)); if(t&&t.dir==="out") setPause(t,m.on); }
 function cancelTx(t){
@@ -2196,7 +2229,7 @@ if(TAURI) try{
   $("closeSettings").onclick=()=>$("settingsModal").style.display="none";
   $("settingsModal").addEventListener("click",e=>{ if(e.target.id==="settingsModal") $("settingsModal").style.display="none"; });
   $("sNick").onchange=()=>{ const v=$("sNick").value.trim(); localStorage.setItem("share_nick",v); inv("set_setting",{key:"nick",value:v}); send({type:"nick",nick:v}); renderMe(); };
-  $("sPick").onclick=async()=>{ const p=await inv("pick_download_dir"); if(p) $("sDir").textContent=p; };
+  $("sPick").onclick=async()=>{ const p=await nativePick("pick_download_dir"); if(p) $("sDir").textContent=p; };
   $("sOpen").onclick=()=>inv("open_download_dir");
   $("sAuto").onchange=async()=>{ try{ await inv("set_setting",{key:"autostart",value:$("sAuto").checked}); toast($("sAuto").checked?"✅ Will start automatically at login":"Autostart off","g"); }catch(err){ toast("Autostart failed: "+esc(String(err)),"r"); $("sAuto").checked=!$("sAuto").checked; } };
   $("sMin").onchange=()=>inv("set_setting",{key:"start_minimized",value:$("sMin").checked});
