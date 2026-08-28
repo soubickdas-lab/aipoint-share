@@ -479,7 +479,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828175947";
+const BUILD="20260828180627";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -951,8 +951,6 @@ function renderPeers(){
       ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();sb.click();} });
       ta.addEventListener("click",e=>e.stopPropagation());
       card.addEventListener("click",e=>{ if(e.target.closest("button,a,textarea,input,select,label,.pf,.pd,.pt,.ps,.tsw,.starb,.compose,.trow")) return; toggleSelect(p); });
-      card.addEventListener("dragover",e=>{e.preventDefault();card.classList.add("drag");});
-      card.addEventListener("dragleave",e=>{ if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
       card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");
         const sid=e.dataTransfer.getData("droply/staged");
         if(sid) sendStagedTo(p.id,sid); else routeFileDrop(p.id,e.dataTransfer);});
@@ -1029,8 +1027,6 @@ function renderMini(){
     ch.className="mchip"+((pinnedDid&&p.did===pinnedDid)?" sel":"");
     ch.innerHTML=`<span class="sdot g"></span>${devIcon(p.ua)} ${esc(displayName(p))}`;
     ch.onclick=()=>toggleSelect(p);
-    ch.addEventListener("dragover",e=>{e.preventDefault();ch.classList.add("sel");});
-    ch.addEventListener("dragleave",()=>ch.classList.remove("sel"));
     ch.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();
       const sid=e.dataTransfer.getData("droply/staged");
       if(sid) sendStagedTo(p.id,sid); else routeFileDrop(p.id,e.dataTransfer);});
@@ -1268,8 +1264,6 @@ function renderSaved(){
     card.addEventListener("click",e=>{ if(e.target.closest("button,a,textarea,input,select,label,.pf,.pd,.pt,.ps,.tsw,.starb,.compose,.trow")) return;
       pinnedDid=(pinnedDid===did)?"":did; localStorage.setItem("share_pin",pinnedDid); renderPeers();
       if(pinnedDid===did) toast(`✅ <b>${esc(info.nick)}</b> selected — drops and Ctrl+V will queue for it`,"g"); });
-    card.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();card.classList.add("drag");});
-    card.addEventListener("dragleave",()=>card.classList.remove("drag"));
     card.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();card.classList.remove("drag");
       const sid=e.dataTransfer.getData("droply/staged");
       if(sid){ const it=staged.find(x=>String(x.id)===String(sid));
@@ -1277,7 +1271,10 @@ function renderSaved(){
         if(batch.length){ queueOrSend(did,batch.map(b=>b.kind==="file"?{kind:"file",file:b.file}:(b.kind==="path"||b.kind==="pathdir")?{kind:"path",path:b.path}:{kind:"folder",root:b.root,list:b.list}));
           staged=staged.filter(x=>!batch.includes(x)); renderTray(); }
         return; }
-      routeFileDrop(null,e.dataTransfer)||queueDrop(did,e.dataTransfer);});
+      const r=dropRoute(null);
+      if(r&&r.peer) handleDrop(r.peer,e.dataTransfer);
+      else if(r&&r.did) queueDrop(r.did,e.dataTransfer);
+      else queueDrop(did,e.dataTransfer);});
     sgrid.appendChild(card);
   }
   if(dirty) saveSaved();
@@ -1353,6 +1350,29 @@ function sendStagedTo(peer,dragId){
   }
   staged=staged.filter(x=>!batch.includes(x)); renderTray();
 }
+
+/* ---------- drag tracking: the card under the cursor lights up, live ---------- */
+let hoverCard=null;
+function setHoverCard(el){
+  if(hoverCard===el) return;
+  if(hoverCard) hoverCard.classList.remove("drag");
+  hoverCard=el||null;
+  if(hoverCard) hoverCard.classList.add("drag");
+}
+function dragHasFiles(dt){ return !!(dt&&[...dt.types].some(t=>t==="Files"||t==="droply/staged")); }
+function cardUnder(x,y){
+  const el=document.elementFromPoint(x,y);
+  return el&&el.closest?el.closest(".peer,.mchip"):null;
+}
+document.addEventListener("dragover",e=>{
+  if(!dragHasFiles(e.dataTransfer)) return;
+  e.preventDefault();
+  // a selected device takes everything, so don't tease other cards with a highlight
+  setHoverCard(selectedName()?null:cardUnder(e.clientX,e.clientY));
+},true);
+document.addEventListener("dragleave",e=>{ if(!e.relatedTarget) setHoverCard(null); },true);
+document.addEventListener("drop",()=>setHoverCard(null),true);
+window.addEventListener("dragend",()=>setHoverCard(null));
 
 /* ---------- page-wide drop → selected device (cards still take their own drops) ---------- */
 let dragDepth=0;
