@@ -226,7 +226,7 @@ fn read_exact_or_err(s: &mut TcpStream, buf: &mut [u8]) -> std::io::Result<()> {
 
 fn handle_conn(app: AppHandle, mut s: TcpStream) {
     let _ = s.set_nodelay(true);
-    let _ = s.set_read_timeout(Some(Duration::from_secs(60)));
+    let _ = s.set_read_timeout(Some(Duration::from_secs(180)));
     let state = app.state::<AppState>();
     let mut buf = vec![0u8; 1024 * 1024];
     loop {
@@ -246,6 +246,19 @@ fn handle_conn(app: AppHandle, mut s: TcpStream) {
             Ok(h) => h,
             Err(_) => return,
         };
+        // throughput probe: swallow the bytes and keep the connection open
+        if h.token == "__probe__" {
+            if s.write_all(b"\x01").is_err() { return; }
+            let mut left = h.len;
+            while left > 0 {
+                let want = std::cmp::min(left, buf.len() as u64) as usize;
+                match s.read(&mut buf[..want]) {
+                    Ok(0) | Err(_) => return,
+                    Ok(n) => left -= n as u64,
+                }
+            }
+            continue;
+        }
         let sid = match state.tokens.lock().unwrap().get(&h.token) {
             Some(id) => *id,
             None => {
@@ -661,6 +674,7 @@ fn send_segments(mut s: TcpStream, token: &str, segs: Vec<Segment>, sent: Arc<At
             s.write_all(&buf[..n]).map_err(|e| e.to_string())?;
             remaining -= n as u64;
             sent.fetch_add(n as u64, Ordering::SeqCst);
+            // (a retried lane replays bytes; the UI clamps progress to the file size)
         }
     }
     let _ = s.flush();
@@ -724,19 +738,43 @@ async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, to
                 }
             });
         }
+        // Open as many extra sockets as the peer will give us; one refusal must not
+        // sink the transfer, we just use fewer streams.
+        let addr_s = if peer_ip.contains(':') { format!("[{}]:{}", peer_ip, port) } else { format!("{}:{}", peer_ip, port) };
+        let addr: SocketAddr = addr_s.parse().map_err(|_| "addr")?;
+        let mut streams = vec![first];
+        for _ in 1..buckets.len() {
+            match TcpStream::connect_timeout(&addr, Duration::from_millis(3000)) {
+                Ok(s) => streams.push(s),
+                Err(_) => break,
+            }
+        }
+        // redistribute the work over the sockets we actually got
+        let lanes = streams.len().max(1);
+        let mut work: Vec<Vec<Segment>> = vec![vec![]; lanes];
+        let mut loads2 = vec![0u64; lanes];
+        for seg in buckets.into_iter().flatten() {
+            let (i, _) = loads2.iter().enumerate().min_by_key(|(_, l)| **l).unwrap();
+            loads2[i] += seg.len.max(1);
+            work[i].push(seg);
+        }
         let mut handles = vec![];
-        let mut first = Some(first);
-        for bucket in buckets {
-            let stream = match first.take() {
-                Some(s) => s,
-                None => {
-                    let addr_s = if peer_ip.contains(':') { format!("[{}]:{}", peer_ip, port) } else { format!("{}:{}", peer_ip, port) };
-                    let a: SocketAddr = addr_s.parse().map_err(|_| "addr")?;
-                    TcpStream::connect_timeout(&a, Duration::from_millis(3000)).map_err(|e| e.to_string())?
-                }
-            };
+        for (stream, bucket) in streams.into_iter().zip(work.into_iter()) {
             let token = token.clone(); let sent = sent.clone(); let cancel = cancel.clone(); let pause = pause.clone();
-            handles.push(thread::spawn(move || send_segments(stream, &token, bucket, sent, cancel, pause)));
+            handles.push(thread::spawn(move || {
+                // one retry on a fresh socket — a dropped connection should not lose the file
+                match send_segments(stream, &token, bucket.clone(), sent.clone(), cancel.clone(), pause.clone()) {
+                    Ok(()) => Ok(()),
+                    Err(e) if !cancel.load(Ordering::SeqCst) => {
+                        thread::sleep(Duration::from_millis(300));
+                        match TcpStream::connect_timeout(&addr, Duration::from_millis(3000)) {
+                            Ok(s2) => send_segments(s2, &token, bucket, sent, cancel, pause),
+                            Err(_) => Err(e),
+                        }
+                    }
+                    Err(e) => Err(e),
+                }
+            }));
         }
         let mut err = None;
         for h in handles {
@@ -758,16 +796,40 @@ async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, to
 /// Check whether this device can really reach the peer's LAN listener, and how fast.
 /// The UI uses the answer to decide between the LAN fast path and the cloud relay.
 #[tauri::command]
-async fn tcp_probe(hosts: Vec<String>, port: u16) -> Result<serde_json::Value, String> {
+async fn tcp_probe(hosts: Vec<String>, port: u16, bytes: Option<u64>) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let t0 = Instant::now();
-        match connect_ranked(&hosts, port) {
-            Some((s, ip)) => {
-                drop(s);
-                Ok(serde_json::json!({"ok": true, "ip": ip, "ms": t0.elapsed().as_millis() as u64}))
+        let (mut s, ip) = match connect_ranked(&hosts, port) {
+            Some(x) => x,
+            None => return Ok(serde_json::json!({"ok": false})),
+        };
+        let connect_ms = t0.elapsed().as_millis() as u64;
+        let n = bytes.unwrap_or(0);
+        let mut mbps = serde_json::Value::Null;
+        if n > 0 {
+            let _ = s.set_nodelay(true);
+            let hdr = serde_json::json!({"token": "__probe__", "rel": "probe", "offset": 0u64, "len": n, "size": n});
+            let hb = serde_json::to_vec(&hdr).unwrap();
+            let ok = s.write_all(&(hb.len() as u32).to_be_bytes()).is_ok()
+                && s.write_all(&hb).is_ok()
+                && { let mut a = [0u8; 1]; s.read_exact(&mut a).is_ok() && a[0] == 1 };
+            if ok {
+                let block = vec![0u8; 1024 * 1024];
+                let t1 = Instant::now();
+                let mut left = n;
+                let mut failed = false;
+                while left > 0 {
+                    let take = std::cmp::min(left, block.len() as u64) as usize;
+                    if s.write_all(&block[..take]).is_err() { failed = true; break; }
+                    left -= take as u64;
+                }
+                if !failed {
+                    let secs = t1.elapsed().as_secs_f64().max(0.001);
+                    mbps = serde_json::json!(((n as f64 / 1_048_576.0) / secs * 10.0).round() / 10.0);
+                }
             }
-            None => Ok(serde_json::json!({"ok": false})),
         }
+        Ok(serde_json::json!({"ok": true, "ip": ip, "ms": connect_ms, "mbps": mbps}))
     })
     .await
     .map_err(|e| e.to_string())?

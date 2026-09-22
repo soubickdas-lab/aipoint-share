@@ -480,7 +480,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260922225756";
+const BUILD="20260922231327";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -766,9 +766,10 @@ async function probePeer(p){
   const prev=lanProbe[p.did];
   if(prev&&prev.port===p.app.port&&Date.now()-prev.at<60000) return;   // fresh enough
   lanProbe[p.did]={ok:prev&&prev.ok,ip:prev&&prev.ip,at:Date.now(),port:p.app.port,busy:true};
+  const measure=!(prev&&prev.mbps);           // first sight: also time 8MB through it
   try{
-    const r=await inv("tcp_probe",{hosts:p.app.ips||[],port:p.app.port});
-    lanProbe[p.did]={ok:!!(r&&r.ok),ip:r&&r.ip,ms:r&&r.ms,at:Date.now(),port:p.app.port};
+    const r=await inv("tcp_probe",{hosts:p.app.ips||[],port:p.app.port,bytes:measure?8*1024*1024:0});
+    lanProbe[p.did]={ok:!!(r&&r.ok),ip:r&&r.ip,ms:r&&r.ms,mbps:(r&&r.mbps)||(prev&&prev.mbps),at:Date.now(),port:p.app.port};
   }catch(err){ lanProbe[p.did]={ok:false,at:Date.now(),port:p.app.port,err:String(err)}; }
   renderPeers();
 }
@@ -1629,10 +1630,10 @@ function outPump(peer){
   while(outActive[peer]<MAX_OUT&&(outQ[peer]||[]).length){ outActive[peer]++; try{ (outQ[peer].shift())(); }catch{ outActive[peer]--; } }
 }
 function outDone(peer){ if(!(peer in outActive)) return; outActive[peer]=Math.max(0,outActive[peer]-1); outPump(peer); }
-function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,entries,tid:fixedTid}){
+function startTransfer(peer,{name,size,mime,source,astext,label,bench,native,entries,srcPath,tid:fixedTid}){
   const tid=fixedTid?(fixedTid>>>0):((++tidCounter)>>>0);
   const t={tid,peer,dir:"out",kind:bench?"bench":astext?"textfile":"file",name,size,mime:mime||"application/octet-stream",
-           source,sent:0,ackedSeq:-1,state:"offer",el:null,mt:meter(),label,native:native||null,entries:entries||null};
+           source,sent:0,ackedSeq:-1,state:"offer",el:null,mt:meter(),label,native:native||null,entries:entries||null,srcPath:srcPath||null};
   transfers.set(txKey(peer,tid),t); renderTx(t);
   updTx(t,"Queued…"); touchPeer(peer);
   if(!bench) send({type:"pending",to:peer,tid,name,size}); // let them see what's lined up
@@ -2209,7 +2210,7 @@ async function sendPath(peer,path){
     if(!list.length){ toast(`Folder <b>${esc(st.name)}</b> is empty`,"r"); return; }
     const total=list.reduce((a,e)=>a+e.size,0);
     if(bothApps){
-      startTransfer(peer,{name:st.name+"/",size:total,mime:"inode/directory",native:{entries:list.map(e=>({rel:e.rel,size:e.size})),root:st.name},
+      startTransfer(peer,{name:st.name+"/",size:total,mime:"inode/directory",srcPath:path,native:{entries:list.map(e=>({rel:e.rel,size:e.size})),root:st.name},
         entries:list.map(e=>({path:e.path,rel:e.rel,size:e.size})),label:`📁 ${list.length} files · LAN direct`});
     } else {
       sendFolder(peer,st.name,list.map(e=>({file:pathFile(e.path,e.rel.split("/").pop(),e.size,e.mtime),path:e.rel})));
@@ -2218,7 +2219,7 @@ async function sendPath(peer,path){
     if(!st.size){ toast("Skipped empty file","r"); return; }
     const pf=pathFile(path,st.name,st.size,st.mtime);
     if(bothApps){
-      startTransfer(peer,{name:st.name,size:st.size,mime:"application/octet-stream",native:{entries:[{rel:st.name,size:st.size}]},
+      startTransfer(peer,{name:st.name,size:st.size,mime:"application/octet-stream",srcPath:path,native:{entries:[{rel:st.name,size:st.size}]},
         entries:[{path,rel:st.name,size:st.size}],source:()=>blobSource(pf),label:"LAN direct"});
     } else startTransfer(peer,{name:st.name,size:st.size,mime:"application/octet-stream",source:()=>blobSource(pf)});
   }
@@ -2236,22 +2237,26 @@ async function nativeSend(t,tcp){
     t.sent=t.size; meterPush(t.mt,t.size); updTx(t,"Finishing…");
     setTimeout(()=>{ if(t.state==="sending") finishOut(t); },2000); // don't wait on signaling
   }catch(err){
-    const msg=String(err);
+    const msg=String(err&&err.message||err);
     if(t.state!=="sending") return;
-    if(/no LAN route/i.test(msg)&&t.source){ // different network → WebRTC/relay into the same disk session
-      toast("No LAN route — falling back to P2P/relay");
-      t.native=null; pump(t);
-    } else if(/no LAN route/i.test(msg)&&t.entries&&t.entries.length){ // folder: cancel native, resend as zip
-      send({type:"cancel",to:t.peer,tid:t.tid}); failTx(t,"no LAN route → resending as zip");
-      const root=t.name.replace(/\/$/,"");
-      sendFolder(t.peer,root,t.entries.map(e=>({file:pathFile(e.path,e.rel.split("/").pop(),e.size,0),path:e.rel})));
-    } else failTx(t,msg);
+    // The LAN path let us down (blocked, VPN, flaky Wi-Fi). Stop trusting it for this
+    // device and send the same thing again through the cloud — the user just sees it work.
+    const pr=peers.find(x=>x.id===t.peer);
+    if(pr&&pr.did) lanProbe[pr.did]={ok:false,at:Date.now(),port:pr.app&&pr.app.port,err:msg};
+    renderPeers();
+    send({type:"cancel",to:t.peer,tid:t.tid});
+    failTx(t,"LAN path failed — retrying over cloud");
+    toast("⚡ LAN path failed — resending over the cloud");
+    if(t.srcPath&&TAURI) setTimeout(()=>sendPath(t.peer,t.srcPath),400);
+    else if(t.source) setTimeout(()=>{
+      startTransfer(t.peer,{name:t.name,size:t.size,mime:t.mime,source:t.source});
+    },400);
   }
 }
 if(TAURI) try{
   // progress events from Rust
   tauriListen("tx-progress",e=>{ const {key,sent}=e.payload; const t=transfers.get(key); if(!t||t.state!=="sending") return;
-    t.sent=sent; meterPush(t.mt,sent); updTx(t,`Sending ⚡ LAN TCP… ${fmtSize(sent)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt)); });
+    t.sent=Math.min(sent,t.size); meterPush(t.mt,t.sent); updTx(t,`Sending ⚡ LAN TCP… ${fmtSize(t.sent)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt)); });
   tauriListen("rx-progress",e=>{ const {sid,got}=e.payload; const t=diskBySid.get(sid); if(!t||t.state!=="receiving") return;
     if(t.nativeIn){ t.got=got; meterPush(t.mt,got); updTx(t,`Receiving ⚡ LAN TCP… ${fmtSize(got)} / ${fmtSize(t.size)}`); setSpeed(t,meterRate(t.mt)); } });
   tauriListen("rx-done",e=>{ const t=diskBySid.get(e.payload.sid); if(!t||t.state!=="receiving") return; t.got=t.size; finishReceive(t); });
@@ -2321,7 +2326,7 @@ if(TAURI) try{
     $("sDir").textContent=appInfo.download_dir; $("sAuto").checked=!!appInfo.autostart; $("sTray").checked=!!appInfo.close_to_tray;
     $("sVer").textContent="Dukto v"+appInfo.version+" · "+appInfo.os;
     { const lines=peers.filter(x=>x.app).map(x=>{ const pr=probeState(x);
-        return "\u2022 "+displayName(x)+": "+(pr?(pr.ok?("LAN ok "+pr.ip+" ("+(pr.ms||0)+"ms)"):"LAN blocked -> cloud"):"probing..."); });
+        return "\u2022 "+displayName(x)+": "+(pr?(pr.ok?("LAN ok "+pr.ip+" "+(pr.ms||0)+"ms"+(pr.mbps?(" · "+pr.mbps+" MB/s"):"")):("LAN blocked -> cloud"+(pr.err?(" ("+String(pr.err).slice(0,60)+")"):""))):"probing..."); });
       if(!lines.length) lines.push("\u2022 no app devices online");
       lines.push("drag events: "+((window.__dragLog||[]).join(" | ")||"none yet"));
       $("sDiag").textContent=lines.join("\n"); }
