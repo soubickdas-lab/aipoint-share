@@ -561,6 +561,55 @@ struct SendEntry { path: String, rel: String, size: u64 }
 #[derive(Clone)]
 struct Segment { path: String, rel: String, offset: u64, len: u64, size: u64 }
 
+/// Two addresses on the same IPv4 /24 or IPv6 /64 — i.e. the same physical LAN.
+fn same_subnet(a: &str, b: &str) -> bool {
+    if a.contains(':') && b.contains(':') {
+        let norm = |s: &str| -> Option<String> {
+            let addr: std::net::Ipv6Addr = s.parse().ok()?;
+            let g = addr.segments();
+            Some(format!("{:x}:{:x}:{:x}:{:x}", g[0], g[1], g[2], g[3]))
+        };
+        return matches!((norm(a), norm(b)), (Some(x), Some(y)) if x == y);
+    }
+    let pa: Vec<&str> = a.split('.').collect();
+    let pb: Vec<&str> = b.split('.').collect();
+    pa.len() == 4 && pb.len() == 4 && pa[0] == pb[0] && pa[1] == pb[1] && pa[2] == pb[2]
+}
+
+fn is_private(ip: &str) -> bool {
+    if let Ok(v4) = ip.parse::<std::net::Ipv4Addr>() {
+        return v4.is_private() || v4.is_link_local();
+    }
+    if let Ok(v6) = ip.parse::<std::net::Ipv6Addr>() {
+        let s = v6.segments();
+        return (s[0] & 0xfe00) == 0xfc00 || (s[0] & 0xffc0) == 0xfe80;
+    }
+    false
+}
+
+/// A VPN tunnel or a hypervisor's virtual switch will happily accept a connection
+/// and then crawl, so try the address that shares a subnet with one of ours first.
+fn rank_hosts(hosts: &[String]) -> Vec<Vec<String>> {
+    let mine = lan_ips();
+    let (mut best, mut ok, mut rest) = (vec![], vec![], vec![]);
+    for h in hosts {
+        if mine.iter().any(|m| same_subnet(m, h)) { best.push(h.clone()); }
+        else if is_private(h) { ok.push(h.clone()); }
+        else { rest.push(h.clone()); }
+    }
+    vec![best, ok, rest].into_iter().filter(|g: &Vec<String>| !g.is_empty()).collect()
+}
+
+fn connect_ranked(hosts: &[String], port: u16) -> Option<(TcpStream, String)> {
+    for group in rank_hosts(hosts) {
+        if let Some(s) = connect_any(&group, port) {
+            let ip = s.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default();
+            return Some((s, ip));
+        }
+    }
+    None
+}
+
 fn connect_any(hosts: &[String], port: u16) -> Option<TcpStream> {
     // try all candidate IPs in parallel, first to answer wins
     let (tx, rx) = std::sync::mpsc::channel();
@@ -633,8 +682,7 @@ async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, to
     let res = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let nstreams = streams.unwrap_or(4).clamp(1, 8) as usize;
         // probe connection first
-        let first = connect_any(&hosts, port).ok_or("no LAN route")?;
-        let peer_ip = first.peer_addr().map(|a| a.ip().to_string()).map_err(|e| e.to_string())?;
+        let (first, peer_ip) = connect_ranked(&hosts, port).ok_or("no LAN route")?;
         // build segments: big files split into ranges >= 8MB
         let mut segs: Vec<Segment> = vec![];
         let total: u64 = entries.iter().map(|e| e.size).sum();
@@ -705,6 +753,24 @@ async fn tcp_send(app: AppHandle, key: String, hosts: Vec<String>, port: u16, to
         st.pause_tx.lock().unwrap().remove(&key);
     }
     res
+}
+
+/// Check whether this device can really reach the peer's LAN listener, and how fast.
+/// The UI uses the answer to decide between the LAN fast path and the cloud relay.
+#[tauri::command]
+async fn tcp_probe(hosts: Vec<String>, port: u16) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let t0 = Instant::now();
+        match connect_ranked(&hosts, port) {
+            Some((s, ip)) => {
+                drop(s);
+                Ok(serde_json::json!({"ok": true, "ip": ip, "ms": t0.elapsed().as_millis() as u64}))
+            }
+            None => Ok(serde_json::json!({"ok": false})),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -841,7 +907,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings, set_setting, pick_download_dir, pick_files, pick_folder, open_download_dir, reveal_path,
             stat_path, list_dir, read_range, recv_session, recv_write, recv_close, recv_abort,
-            tcp_send, tcp_cancel, tcp_pause, show_main, check_update, self_update, restart_app, open_url
+            tcp_send, tcp_cancel, tcp_pause, tcp_probe, show_main, check_update, self_update, restart_app, open_url
         ])
         .build(tauri::generate_context!())
         .expect("error while running Dukto")

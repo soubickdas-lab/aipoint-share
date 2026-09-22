@@ -1,6 +1,6 @@
 [package]
 name = "aipoint-share"
-version = "1.1.9"
+version = "1.2.0"
 description = "AIPoint Share — device-to-device file transfer"
 authors = ["Soubick Das"]
 edition = "2021"

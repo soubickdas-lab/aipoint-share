@@ -396,6 +396,7 @@ h2.sec{margin:22px 0 12px}
       <label class="mrow chk"><input type="checkbox" id="sAuto"><span><b>Start automatically when computer starts</b><br><small>Runs in the tray at login so files can arrive any time</small></span></label>
       <label class="mrow chk"><input type="checkbox" id="sTray"><span><b>Keep running in tray when window is closed</b></span></label>
       <div class="mrow"><span>App updates</span><button class="btn sm" id="sCheckUpd">🔄 Check for updates</button><button class="btn sm" id="sRelPage" title="Open the downloads page">⬇ Downloads page</button><span id="sUpdSt" style="color:var(--dim2);font-size:.72rem"></span></div>
+      <div class="mrow" style="align-items:flex-start"><span>Diagnostics</span><pre id="sDiag" style="flex:1;margin:0;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:.68rem;line-height:1.5;color:var(--dim);max-height:150px;overflow:auto;white-space:pre-wrap"></pre></div>
       <div class="mfoot"><span id="sVer"></span><span id="sLan"></span></div>
     </div>
   </div>
@@ -479,7 +480,7 @@ const CHUNK=256*1024, WINDOW=24, ACK_EVERY=8; // relay path: 256KB frames, 6MB i
 const MAX_TEXT=200*1024;
 
 /* ---------- desktop app bridge (Tauri) ---------- */
-const BUILD="20260828182440";
+const BUILD="20260922225756";
 // Offscreen textarea: the desktop webview is not a secure context, so
 // navigator.clipboard is unavailable there and Ctrl+V carries no clipboardData.
 // This element gives us both a copy fallback and a place for pastes to land.
@@ -630,7 +631,16 @@ function connect(){
     else handleChunk(ev.data);
   };
 }
-setInterval(()=>{ if(ws&&ws.readyState===1) ws.send("ping"); },25000);
+setInterval(()=>{ if(ws&&ws.readyState===1) ws.send("ping"); },15000);
+// the server broadcasts the roster every 30s; silence means our socket is a zombie
+let lastPeersAt=Date.now();
+setInterval(()=>{
+  if(!ws||ws.readyState!==1) return;
+  if(Date.now()-lastPeersAt<75000) return;
+  lastPeersAt=Date.now();
+  try{ ws.onclose=null; ws.close(); }catch{}
+  reconnectDelay=500; connect();
+},20000);
 function send(o){ if(ws&&ws.readyState===1) ws.send(JSON.stringify(o)); }
 function setConn(on){
   document.getElementById("connDot").className="dot "+(on?"on":"off");
@@ -745,6 +755,26 @@ function isPrivateAddr(ip){
   if(ip.includes(":")) return /^(fe80|fc|fd)/i.test(ip);
   return /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
 }
+// A LAN address match is only a guess: a VPN, a firewall or macOS's local-network
+// privacy can still block the direct path. Ask the app to actually connect once and
+// remember the address that worked — transfers then use that, or the cloud instead.
+const lanProbe={};           // did -> {ok, ip, ms, at, port}
+function probeState(p){ return p&&p.did?lanProbe[p.did]:null; }
+function lanReady(p){ const s=probeState(p); return !!(s&&s.ok); }
+async function probePeer(p){
+  if(!TAURI||!p||!p.did||!p.app||!p.app.port) return;
+  const prev=lanProbe[p.did];
+  if(prev&&prev.port===p.app.port&&Date.now()-prev.at<60000) return;   // fresh enough
+  lanProbe[p.did]={ok:prev&&prev.ok,ip:prev&&prev.ip,at:Date.now(),port:p.app.port,busy:true};
+  try{
+    const r=await inv("tcp_probe",{hosts:p.app.ips||[],port:p.app.port});
+    lanProbe[p.did]={ok:!!(r&&r.ok),ip:r&&r.ip,ms:r&&r.ms,at:Date.now(),port:p.app.port};
+  }catch(err){ lanProbe[p.did]={ok:false,at:Date.now(),port:p.app.port,err:String(err)}; }
+  renderPeers();
+}
+function probeAll(){ for(const p of peers) probePeer(p); }
+setInterval(probeAll,60000);
+
 function peerIsLan(peerId){
   const p=peers.find(x=>x.id===peerId);
   if(!p) return false;
@@ -805,6 +835,13 @@ function dropRtc(peerId){
 }
 function netLabel(peerId){
   const e=rtc.get(peerId), st=e?e.status:"failed";
+  const p=peers.find(x=>x.id===peerId);
+  if(TAURI&&p&&p.app){                       // app ↔ app: the probe is the truth
+    const pr=probeState(p);
+    if(pr&&pr.ok) return {cls:"local", txt:"⚡ LAN direct"};
+    if(pr&&!pr.ok&&!pr.busy&&(st==="local"||peerIsLan(peerId)))
+      return {cls:"", txt:"🌐 Via cloud"};   // same network, but the direct path is blocked
+  }
   if(st==="local"||peerIsLan(peerId)) return {cls:"local", txt:"⚡ Local"};
   if(st==="connecting") return {cls:"", txt:"…"};
   return {cls:"", txt:"🌐 Remote"};
@@ -838,8 +875,10 @@ function handleJson(m){
       renderMe(); break;
     }
     case "peers":{
+      lastPeersAt=Date.now();
       peers=(m.peers||[]).filter(p=>p.id!==myId&&!(p.did&&p.did===myDid));
       commonNotes=m.notes||[];
+      probeAll();
       turnReady.then(()=>{ for(const p of peers){
         if(rtc.has(p.id)) continue;
         if(myId<p.id) ensureRtc(p.id,true);
@@ -1632,7 +1671,12 @@ function onAccept(m){
   const t=transfers.get(txKey(m.from,m.tid)); if(!t||t.dir!=="out"||t.state!=="offer") return;
   t.state="sending";
   if(t.native&&m.tcp&&TAURI) nativeSend(t,m.tcp);
-  else if(t.source){ if(t.kind!=="bench"||true){ const e=rtc.get(t.peer); if(!(e&&e.status==="local")) openPipes(t); } pump(t); }
+  else if(t.source){
+    const p=peers.find(x=>x.id===t.peer);
+    const trueLan=lanReady(p)||(!(p&&p.app)&&(rtc.get(t.peer)||{}).status==="local");
+    if(!trueLan) openPipes(t);            // no proven LAN path → parallel cloud pipes
+    pump(t);
+  }
   else failTx(t,"peer can't receive natively");
 }
 
@@ -1731,7 +1775,8 @@ async function pump(t){
       if(t.paused){ await new Promise(r=>{ t.resume=r; setTimeout(r,400); }); continue; }
       const e=rtc.get(t.peer);
       // candidate transports: DataChannels (LAN / P2P) + parallel cloud pipes; pick the least loaded
-      const isLocal=!!(e&&e.status==="local")||peerIsLan(t.peer);
+      const pp=peers.find(x=>x.id===t.peer);
+      const isLocal=(pp&&pp.app)?lanReady(pp):(!!(e&&e.status==="local")||peerIsLan(t.peer));
       if(isLocal&&t.pipes&&t.pipes.length){ closePipes(t); } // LAN: cloud pipes only slow us down
       const pAll=t.pipes||[], pAlive=pAll.filter(p=>!p.dead), pReady=livePipes(t);
       // remote: WebRTC over WAN crawls (~100KB/s) — never queue into it while pipes exist
@@ -2158,7 +2203,7 @@ async function sendPath(peer,path){
   if(!TAURI) return;
   const p=peers.find(x=>x.id===peer); if(!p) return;
   let st; try{ st=await inv("stat_path",{path}); }catch(e){ toast("Cannot read: "+esc(String(e)),"r"); return; }
-  const bothApps=!!(p.app&&p.app.port);
+  const bothApps=!!(p.app&&p.app.port&&lanReady(p));   // proven reachable, not just "looks local"
   if(st.is_dir){
     const list=await inv("list_dir",{path});
     if(!list.length){ toast(`Folder <b>${esc(st.name)}</b> is empty`,"r"); return; }
@@ -2185,7 +2230,9 @@ async function nativeSend(t,tcp){
   { const el=t.el&&t.el.querySelector(".fn .peer"); if(el&&!/LAN TCP/.test(el.textContent)) el.textContent+=" · ⚡ LAN TCP"; }
   updTx(t,"Connecting on LAN…");
   try{
-    await inv("tcp_send",{key,hosts:tcp.ips||[],port:tcp.port,token:tcp.token,entries:t.entries,streams:6});
+    const pr=probeState(peers.find(x=>x.id===t.peer));
+    const hosts=(pr&&pr.ok&&pr.ip)?[pr.ip,...(tcp.ips||[]).filter(x=>x!==pr.ip)]:(tcp.ips||[]);
+    await inv("tcp_send",{key,hosts,port:tcp.port,token:tcp.token,entries:t.entries,streams:6});
     t.sent=t.size; meterPush(t.mt,t.size); updTx(t,"Finishing…");
     setTimeout(()=>{ if(t.state==="sending") finishOut(t); },2000); // don't wait on signaling
   }catch(err){
@@ -2235,7 +2282,11 @@ if(TAURI) try{
     return null;
   };
   const dropTarget=(pos)=>cardAt(pos)||(dropHi&&dropHi.isConnected?dropHi:null);
-  tauriListen("tauri://drag-enter",e=>{ const c=cardAt(e&&e.payload&&e.payload.position);
+  window.__dragLog=[];
+  const logDrag=(what,e,card)=>{ const pos=e&&e.payload&&e.payload.position;
+    window.__dragLog.unshift(what+" @"+(pos?Math.round(pos.x)+","+Math.round(pos.y):"?")+(card?" -> "+card.id:" -> none"));
+    window.__dragLog=window.__dragLog.slice(0,6); };
+  tauriListen("tauri://drag-enter",e=>{ const c=cardAt(e&&e.payload&&e.payload.position); logDrag("enter",e,c);
     if(c){ dropHi=c; c.classList.add("drag"); return; }
     const nm=selectedName(); if(nm){document.body.dataset.msg="📂  Drop anywhere → "+nm;document.body.classList.add("pagedrag");} });
   tauriListen("tauri://drag-over",e=>{ const c=cardAt(e.payload.position);
@@ -2243,7 +2294,7 @@ if(TAURI) try{
     if(c) document.body.classList.remove("pagedrag");
     else { const nm=selectedName(); if(nm){document.body.dataset.msg="📂  Drop anywhere → "+nm;document.body.classList.add("pagedrag");} } });
   tauriListen("tauri://drag-leave",clearHi);
-  tauriListen("tauri://drag-drop",e=>{ const c=dropTarget(e.payload.position); clearHi();
+  tauriListen("tauri://drag-drop",e=>{ const c=dropTarget(e.payload.position); logDrag("DROP "+((e.payload.paths||[]).length)+" file(s)",e,c); clearHi();
     const paths=e.payload.paths||[];
     if(!paths.length) return;
     if(!selectedPeer()&&c&&c.id.startsWith("soff-")){ // offline saved PC → queue, auto-send when it returns
@@ -2269,6 +2320,11 @@ if(TAURI) try{
     $("sNick").value=localStorage.getItem("share_nick")||appInfo.nick||"";
     $("sDir").textContent=appInfo.download_dir; $("sAuto").checked=!!appInfo.autostart; $("sTray").checked=!!appInfo.close_to_tray;
     $("sVer").textContent="Dukto v"+appInfo.version+" · "+appInfo.os;
+    { const lines=peers.filter(x=>x.app).map(x=>{ const pr=probeState(x);
+        return "\u2022 "+displayName(x)+": "+(pr?(pr.ok?("LAN ok "+pr.ip+" ("+(pr.ms||0)+"ms)"):"LAN blocked -> cloud"):"probing..."); });
+      if(!lines.length) lines.push("\u2022 no app devices online");
+      lines.push("drag events: "+((window.__dragLog||[]).join(" | ")||"none yet"));
+      $("sDiag").textContent=lines.join("\n"); }
     $("sLan").textContent="LAN: "+(appInfo.ips||[]).join(", ")+" · port "+appInfo.port;
     $("settingsModal").style.display="";
   }
